@@ -2,23 +2,15 @@
 ## ベースイメージ
 FROM rust:1.83.0-bookworm AS base
 ARG CARGO_CHEF_VERSION=0.1.68
-ARG SCCACHE_VERSION=0.9.0
 ARG MOLD_VERSION=2.35.1
 
 # 開発ツールのインストール
 RUN cargo install --locked cargo-chef --version ${CARGO_CHEF_VERSION} && \
     ARCH=$(uname -m) && \
-    curl -L -O https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-${ARCH}-unknown-linux-musl.tar.gz && \
-    tar xf sccache-* && \
-    cp -p sccache-*/sccache /usr/local/bin/ && \
-    rm -rf sccache-* && \
     curl -L -O https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz && \
     tar xf mold-* && \
     cp -p mold-*/bin/* /usr/local/bin/ && \
     rm -rf mold-*
-
-ENV RUSTC_WRAPPER=sccache \
-    SCCACHE_DIR=/sccache
 
 ## ------------------------------
 ## プランニングステージ
@@ -27,7 +19,7 @@ ENV RUSTC_WRAPPER=sccache \
 FROM base AS planner
 WORKDIR /app
 COPY . .
-RUN cargo chef prepare --recipe-path recipe.json　
+RUN cargo chef prepare --recipe-path recipe.json
 
 ## ------------------------------
 ## ビルドステージ
@@ -36,23 +28,23 @@ WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
-    cargo chef cook --recipe-path recipe.json && \
-    sccache --show-stats
+    cargo chef cook --recipe-path recipe.json
 
-# プロジェクトのソースコードをカレントディレクトリに上書きコピーしてビルド
+# ソースコードのコピーとビルド
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
-    cargo build && \
-    sccache --show-stats
+    cargo build --all-features
 
-FROM rust:1.83.0-slim-bullseye AS development
+## ------------------------------
+## 開発環境
+FROM rust:1.83.0-slim-bookworm AS development
 RUN apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
 COPY --from=builder /app/target target
-COPY --from=builder /app .
+COPY --from=builder /usr/local/cargo/registry /usr/local/cargo/registry
+COPY . .

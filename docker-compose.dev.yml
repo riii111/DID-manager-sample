@@ -10,16 +10,12 @@ services:
       - .:/app
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/app/target
-      - sccache-cache:/sccache # sccacheのキャッシュを永続化
     environment:
       - DATABASE_URL=postgres://miax:password@db:5432/miax_dev
       - RUST_LOG=debug
-      - RUSTC_WRAPPER=sccache
-      - SCCACHE_DIR=/sccache
-      - CARGO_INCREMENTAL=0 # sccacheの効率を上げるため
     tty: true # TODO:あとで消す
     stdin_open: true
-    command: tail -f /dev/null # コンテナを継続実行させる
+    command: bash -c "cargo build && cargo run -p agent"
     ports:
       - "3000:3000"
     depends_on:
@@ -45,4 +41,3 @@ volumes:
   cargo-cache:
   target-cache:
   postgres_data:
-  sccache-cache:

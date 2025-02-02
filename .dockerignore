@@ -1,0 +1,16 @@
+*.md
+要件定義.md
+docs/
+
+.git/
+.github/
+.gitignore
+.env
+.env.*
+
+target/
+**/target/
+.cargo/
+
+*.log
+.DS_Store
