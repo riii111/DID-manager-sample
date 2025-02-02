@@ -1,0 +1,48 @@
+services:
+  miax-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+      args:
+        DOCKER_BUILDKIT: 1 # 並列ビルド有効化
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+      - sccache-cache:/sccache # sccacheのキャッシュを永続化
+    environment:
+      - DATABASE_URL=postgres://miax:password@db:5432/miax_dev
+      - RUST_LOG=debug
+      - RUSTC_WRAPPER=sccache
+      - SCCACHE_DIR=/sccache
+      - CARGO_INCREMENTAL=0 # sccacheの効率を上げるため
+    tty: true # TODO:あとで消す
+    stdin_open: true
+    command: tail -f /dev/null # コンテナを継続実行させる
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: miax
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: miax_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miax -d miax_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cargo-cache:
+  target-cache:
+  postgres_data:
+  sccache-cache:
