@@ -1,2 +1,6 @@
 要件定義.md
 Tips.md
+
+.env
+.DS_STORE
+target/
