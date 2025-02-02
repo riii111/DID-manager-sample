@@ -10,7 +10,11 @@ RUN cargo install --locked cargo-chef --version ${CARGO_CHEF_VERSION} && \
     curl -L -O https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz && \
     tar xf mold-* && \
     cp -p mold-*/bin/* /usr/local/bin/ && \
+    cp -rp mold-*/lib/* /usr/local/lib/ && \
     rm -rf mold-*
+
+# moldのラッパーライブラリのパスを設定
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 ## ------------------------------
 ## プランニングステージ
@@ -28,13 +32,13 @@ WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
-    cargo chef cook --recipe-path recipe.json
+    mold -run cargo chef cook --recipe-path recipe.json
 
 # ソースコードのコピーとビルド
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
-    cargo build --all-features
+    mold -run cargo build --all-features
 
 ## ------------------------------
 ## 開発環境
