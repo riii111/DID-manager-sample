@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+agent = { path = "../agent" }
+chrono = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
