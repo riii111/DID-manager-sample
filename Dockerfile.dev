@@ -1,20 +1,25 @@
 ## ------------------------------
 ## ベースイメージ
-FROM rust:1.83.0-bookworm AS base
+FROM rust:1.83.0-slim-bookworm AS base
 ARG CARGO_CHEF_VERSION=0.1.68
+ARG MOLD_VERSION=2.35.1
 
 # 必要最小限のツールのインストール
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    clang \
-    lld \
     libssl-dev \
-    pkg-config && \
+    pkg-config \
+    curl && \
     rm -rf /var/lib/apt/lists/* && \
-    cargo install --locked cargo-chef --version ${CARGO_CHEF_VERSION}
+    cargo install --locked cargo-chef --version ${CARGO_CHEF_VERSION} && \
+    # moldのインストールを最適化
+    ARCH=$(uname -m) && \
+    curl -L https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz | \
+    tar xz -C /usr/local --strip-components=1 && \
+    apt-get purge -y curl && \
+    apt-get autoremove -y
 
-# LLDリンカーを使用するように設定
-ENV RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+ENV CARGO_BUILD_JOBS="8"
 
 ## ------------------------------
 ## プランニングステージ
@@ -32,13 +37,13 @@ WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
-    cargo chef cook --recipe-path recipe.json
+    mold -run cargo chef cook --recipe-path recipe.json
 
 # ソースコードのコピーとビルド
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
-    cargo build --all-features
+    mold -run cargo build --all-features
 
 ## ------------------------------
 ## 開発環境
@@ -51,5 +56,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-# 依存関係の解決に必要な最小限のファイルのみをコピー
+COPY --from=builder /app/target /app/target
+COPY --from=builder /usr/local/cargo/registry /usr/local/cargo/registry
+
+# 必要なファイルのみをコピー
 COPY Cargo.toml Cargo.lock ./
+COPY agent ./agent
+COPY protocol ./protocol
+COPY controller ./controller
+COPY bin ./bin
