@@ -1,16 +1,28 @@
+# ドキュメント関連
 *.md
 要件定義.md
 docs/
+Tips.md
+README.md
 
+# バージョン管理
 .git/
 .github/
 .gitignore
+
+# 環境設定
 .env
 .env.*
+Makefile
+docker-compose*.yml
+Dockerfile*
 
+# ビルド成果物
 target/
 **/target/
 .cargo/
 
+# その他
 *.log
 .DS_Store
+db/
