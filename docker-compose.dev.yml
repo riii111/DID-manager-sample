@@ -5,7 +5,10 @@ services:
       dockerfile: Dockerfile.dev
       target: development
     volumes:
-      - .:/app
+      - ./agent:/app/agent
+      - ./protocol:/app/protocol
+      - ./controller:/app/controller
+      - ./bin:/app/bin
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/app/target
     environment:
