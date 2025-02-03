@@ -1,0 +1,52 @@
+## ------------------------------
+## ベースイメージ
+FROM rust:1.83.0-bookworm AS base
+ARG CARGO_CHEF_VERSION=0.1.68
+
+# 開発ツールのインストール
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    clang \
+    lld && \
+    rm -rf /var/lib/apt/lists/* && \
+    cargo install --locked cargo-chef --version ${CARGO_CHEF_VERSION}
+
+# LLDリンカーを使用するように設定
+ENV RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+
+## ------------------------------
+## プランニングステージ
+## プロジェクトの依存関係を分析し、ビルド時に必要な情報をレシピに保存
+## 依存関係が変更されていない場合のキャッシュを効率的に利用
+FROM base AS planner
+WORKDIR /app
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+## ------------------------------
+## ビルドステージ
+FROM base AS builder
+WORKDIR /app
+COPY --from=planner /app/recipe.json recipe.json
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    cargo chef cook --recipe-path recipe.json
+
+# ソースコードのコピーとビルド
+COPY . .
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    cargo build --all-features
+
+## ------------------------------
+## 開発環境
+FROM rust:1.83.0-slim-bookworm AS development
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+COPY --from=builder /app/target target
+COPY --from=builder /usr/local/cargo/registry /usr/local/cargo/registry
+COPY . .

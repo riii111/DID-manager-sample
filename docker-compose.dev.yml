@@ -1,0 +1,39 @@
+services:
+  miax-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    environment:
+      - DATABASE_URL=postgres://miax:password@db:5432/miax_dev
+      - RUST_LOG=debug
+    command: cargo run -p agent
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: miax
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: miax_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miax -d miax_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cargo-cache:
+  target-cache:
+  postgres_data:
