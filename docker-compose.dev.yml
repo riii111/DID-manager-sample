@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       target: development
-      args:
-        - BACON_VERSION=3.9.1
     volumes:
       - ./agent:/app/agent
       - ./protocol:/app/protocol
@@ -16,8 +14,7 @@ services:
     environment:
       - DATABASE_URL=postgres://miax:password@db:5432/miax_dev
       - RUST_LOG=debug
-      - BACON_WATCHER=poll
-    command: bacon --job run
+    command: cargo watch -w agent -w protocol -w controller -w bin -x "run --bin miax-agent"
     security_opt:
       - seccomp:unconfined
     cap_add:
