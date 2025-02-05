@@ -3,7 +3,7 @@ use axum::{routing::post, Router};
 
 pub fn router() -> Router {
     Router::new().route(
-        "/miax/create_identifier",
-        post(controllers::create_identifier::handle_create_identifier),
+        "/create_identifier",
+        post(post(controllers::public::miax_create_identifier::handler)),
     )
 }

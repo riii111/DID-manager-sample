@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::Json};
 use chrono;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct CreateIdentifierResponse {
