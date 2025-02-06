@@ -27,6 +27,7 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
+ "protocol",
  "serde",
  "serde_json",
  "sqlx",

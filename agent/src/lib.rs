@@ -2,8 +2,10 @@ use axum::{routing::get, Router};
 use tokio;
 
 pub mod cli;
+mod config;
 pub mod controllers;
 pub mod server;
+mod services;
 
 pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Result<()> {
     println!("Starting MiaX Agent...");

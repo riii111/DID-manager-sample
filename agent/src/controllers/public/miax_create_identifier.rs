@@ -1,18 +1,16 @@
+use crate::{controllers::errors::MiaXErrorCode, services::miax::MiaX};
 use axum::{http::StatusCode, response::Json};
-use chrono;
-use serde::Serialize;
 
-#[derive(Serialize)]
-pub struct CreateIdentifierResponse {
-    did: String,
-    created_at: String,
+pub struct MiaxDidResponse {
+    pub did_document: DidDocument,
 }
 
-pub async fn handler() -> Result<Json<CreateIdentifierResponse>, StatusCode> {
-    let response = CreateIdentifierResponse {
-        did: "did:miax:test123".to_string(),
-        created_at: chrono::Utc::now().to_rfc3339(),
-    };
-
-    Ok(Json(response))
+pub async fn handler() -> Result<Json<MiaxDidResponse>, StatusCode> {
+    let service = MiaX::new();
+    match service.create_identifier().await {
+        Err(e) => {
+            log::error!("ERROR: Failure to generate DID");
+            Err(MiaXErrorCode::CreateIdentifierInternal)
+        }
+    }
 }
