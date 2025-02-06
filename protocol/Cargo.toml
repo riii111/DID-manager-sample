@@ -8,3 +8,4 @@ path = "src/lib.rs"
 
 [dependencies]
 serde = { workspace = true }
+zeroize = { workspace = true }
