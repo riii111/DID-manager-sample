@@ -1,4 +1,6 @@
-use std::env;
+use protocol::keyring::keypair::KeyPairHex;
+use serde::{Deserialize, Serialize};
+use std::{env, sync::Arc, Mutex, Once};
 
 #[derive(Debug)]
 pub struct ServerConfig {
@@ -35,4 +37,29 @@ impl ServerConfig {
 
 pub fn server_config() -> ServerConfig {
     ServerConfig::new()
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DidCommConfig {
+    pub http_body_size_limit: usize,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct KeyPairsConfig {
+    sign: Option<KeyPairHex>,
+    update: Option<KeyPairHex>,
+    recovery: Option<KeyPairHex>,
+    encrypt: Option<KeyPairHex>,
+}
+
+/// 最低限の設定例
+pub struct AppConfig {
+    did: Option<String>,
+    key_pairs: KeyPairsConfig,
+    is_initialized: bool,
+}
+
+#[derive(Clone)]
+pub struct SingletonAppConfig {
+    inner: Arc<Mutex<AppConfig>>,
 }

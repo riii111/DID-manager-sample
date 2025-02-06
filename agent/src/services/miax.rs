@@ -11,11 +11,10 @@ impl MiaX {
     }
 
     pub async fn create_identifier(&self) -> Result<MiaxDidResponse, MiaXErrorCode> {
-        // 1. 設定取得
-        // 2. 既存確認
-        // 3. 新規生成
-        // 4. リポジトリ呼び出し
-        // 5. ほぞん
+        // 設定取得
+        // 既存のDIDを探す（load_keyring)
+        // 新しい鍵ペアを生成（create_keyring）
+        // リポジトリ呼び出し保存
         todo!("Implement DID generation logic")
     }
 }
