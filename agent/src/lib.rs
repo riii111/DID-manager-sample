@@ -8,7 +8,7 @@ pub mod server;
 pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Result<()> {
     println!("Starting MiaX Agent...");
 
-    let app = Router::new().nest("/miax", server::router());
+    let app = Router::new().nest("/miax", server::make_router());
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
     println!("Server running on http://127.0.0.1:3000");
