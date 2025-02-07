@@ -5,7 +5,6 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, Once},
 };
 
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DidCommConfig {
     pub http_body_size_limit: usize,
@@ -19,74 +18,72 @@ pub struct KeyPairsConfig {
     encrypt: Option<KeyPairHex>,
 }
 
-#[derive(Deserialize,Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct ConfigRoot {
-  did: Option<String>,
-  key_pairs: KeyPairsConfig,
-  // extensions:
-  // metrics
-  didcomm: DidCommConfig,
-  is_initialized: bool,
-  schema_version: u8
+    did: Option<String>,
+    key_pairs: KeyPairsConfig,
+    // extensions:
+    // metrics
+    didcomm: DidCommConfig,
+    is_initialized: bool,
+    schema_version: u8,
 }
 
 impl Default for ConfigRoot {
-  fn default() -> Self {
-    ConfigRoot {
-      // 環境変数があればその値を、なければダミー値を設定
-      did: std::env::var("MiaX_DID").ok().or(Some("did:example:dummy".to_string())),
-      key_pairs: KeyPairsConfig {
-        sign: Some(KeyPairHex {
-          public_key: std::env::var("MiaX_SIGN_PUBLIC")
-              .unwrap_or_else(|_| "dummy-sign-public".to_string()),
-          secret_key: std::env::var("MiaX_SIGN_SECRET")
-              .unwrap_or_else(|_| "dummy-sign-secret".to_string()),
-        }),
-        update: Some(KeyPairHex {
-          public_key: std::env::var("MiaX_UPDATE_PUBLIC")
-              .unwrap_or_else(|_| "dummy-update-public".to_string()),
-          secret_key: std::env::var("MiaX_UPDATE_SECRET")
-              .unwrap_or_else(|_| "dummy-update-secret".to_string()),
-        }),
-        recovery: Some(KeyPairHex {
-          public_key: std::env::var("MiaX_RECOVERY_PUBLIC")
-              .unwrap_or_else(|_| "dummy-recovery-public".to_string()),
-          secret_key: std::env::var("MiaX_RECOVERY_SECRET")
-              .unwrap_or_else(|_| "dummy-recovery-secret".to_string()),
-        }),
-        encrypt: Some(KeyPairHex {
-          public_key: std::env::var("MiaX_ENCRYPT_PUBLIC")
-              .unwrap_or_else(|_| "dummy-encrypt-public".to_string()),
-          secret_key: std::env::var("MiaX_ENCRYPT_SECRET")
-              .unwrap_or_else(|_| "dummy-encrypt-secret".to_string()),
-        }),
-      },
-      didcomm: DidCommConfig {
-        http_body_size_limit: std::env::var("MiaX_DIDCOMM_HTTP_BODY_SIZE_LIMIT")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(3 * 1024 * 1024),
-      },
-      is_initialized: false,
-      schema_version: 1,
+    fn default() -> Self {
+        ConfigRoot {
+            // 環境変数があればその値を、なければダミー値を設定
+            did: std::env::var("MiaX_DID")
+                .ok()
+                .or(Some("did:example:dummy".to_string())),
+            key_pairs: KeyPairsConfig {
+                sign: Some(KeyPairHex {
+                    public_key: std::env::var("MiaX_SIGN_PUBLIC")
+                        .unwrap_or_else(|_| "dummy-sign-public".to_string()),
+                    secret_key: std::env::var("MiaX_SIGN_SECRET")
+                        .unwrap_or_else(|_| "dummy-sign-secret".to_string()),
+                }),
+                update: Some(KeyPairHex {
+                    public_key: std::env::var("MiaX_UPDATE_PUBLIC")
+                        .unwrap_or_else(|_| "dummy-update-public".to_string()),
+                    secret_key: std::env::var("MiaX_UPDATE_SECRET")
+                        .unwrap_or_else(|_| "dummy-update-secret".to_string()),
+                }),
+                recovery: Some(KeyPairHex {
+                    public_key: std::env::var("MiaX_RECOVERY_PUBLIC")
+                        .unwrap_or_else(|_| "dummy-recovery-public".to_string()),
+                    secret_key: std::env::var("MiaX_RECOVERY_SECRET")
+                        .unwrap_or_else(|_| "dummy-recovery-secret".to_string()),
+                }),
+                encrypt: Some(KeyPairHex {
+                    public_key: std::env::var("MiaX_ENCRYPT_PUBLIC")
+                        .unwrap_or_else(|_| "dummy-encrypt-public".to_string()),
+                    secret_key: std::env::var("MiaX_ENCRYPT_SECRET")
+                        .unwrap_or_else(|_| "dummy-encrypt-secret".to_string()),
+                }),
+            },
+            didcomm: DidCommConfig {
+                http_body_size_limit: std::env::var("MiaX_DIDCOMM_HTTP_BODY_SIZE_LIMIT")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(3 * 1024 * 1024),
+            },
+            is_initialized: false,
+            schema_version: 1,
+        }
     }
-  }
 }
-
 
 /// 最低限の設定例
 pub struct AppConfig {
-    did: Option<String>,
-    key_pairs: KeyPairsConfig,
-    is_initialized: bool,
+    root: ConfigRoot,
 }
 
 impl AppConfig {
-  fn new() -> Self {
-    self.did,
-    self.key_pairs,
-    self.is_initialized
-  }
+    pub fn new() -> Self {
+        let root = ConfigRoot::default();
+        AppConfig { root }
+    }
 }
 
 #[derive(Clone)]
@@ -102,23 +99,22 @@ impl SingletonAppConfig {
 }
 
 pub fn app_config() -> Box<SingletonAppConfig> {
-  static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
-  static ONCE: Once = Once::new();
+    static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
+    static ONCE: Once = Once::new();
 
-  unsafe {
-    // 初期化時は競合を防ぐため、Onceで他スレッドを待機
-    ONCE.call_once(|| {
-      let singleton = SingletonAppConfig {
-        inner: Arc::new(Mutex::new(AppConfig::new())),
-      };
+    unsafe {
+        // 初期化時は競合を防ぐため、Onceで他スレッドを待機
+        ONCE.call_once(|| {
+            let singleton = SingletonAppConfig {
+                inner: Arc::new(Mutex::new(AppConfig::new())),
+            };
 
-      SINGLETON = Some(Box::new(singleton))
-    });
+            SINGLETON = Some(Box::new(singleton))
+        });
 
-    SINGLETON.clone().unwrap()
-  }
+        SINGLETON.clone().unwrap()
+    }
 }
-
 
 #[derive(Debug)]
 pub struct ServerConfig {
