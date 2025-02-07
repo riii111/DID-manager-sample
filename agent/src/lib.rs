@@ -1,12 +1,12 @@
 use axum::{routing::get, Router};
 use dotenvy::dotenv;
 use tokio;
-
 pub mod cli;
 mod config;
+mod services;
+pub use crate::config::app_config;
 pub mod controllers;
 pub mod server;
-mod services;
 
 pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Result<()> {
     dotenv().ok();
