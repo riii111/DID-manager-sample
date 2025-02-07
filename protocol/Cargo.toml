@@ -9,3 +9,6 @@ path = "src/lib.rs"
 [dependencies]
 serde = { workspace = true }
 zeroize = { workspace = true }
+k256 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
