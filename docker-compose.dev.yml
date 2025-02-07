@@ -14,12 +14,18 @@ services:
     environment:
       - DATABASE_URL=postgres://miax:password@db:5432/miax_dev
       - RUST_LOG=debug
-    command: cargo run -p agent
+    command: cargo watch -w agent -w protocol -w controller -w bin -x "run --bin miax-agent"
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_PTRACE
     ports:
       - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
+    tty: true
+    stdin_open: true
 
   db:
     image: postgres:16

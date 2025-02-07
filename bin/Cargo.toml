@@ -1,6 +1,16 @@
 [package]
 name = "bin"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+
+[[bin]]
+name = "miax-agent"
+path = "src/main.rs"
 
 [dependencies]
+agent = { path = "../agent" }
+chrono = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
