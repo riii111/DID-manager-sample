@@ -26,6 +26,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap",
+ "dotenvy",
  "futures",
  "protocol",
  "serde",
