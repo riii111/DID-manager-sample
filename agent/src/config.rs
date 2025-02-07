@@ -1,18 +1,11 @@
 use protocol::keyring::keypair::KeyPairHex;
 use serde::{Deserialize, Serialize};
-use std::{env, sync::Arc, Mutex, Once};
+use std::{
+    env,
+    sync::{Arc, Mutex, MutexGuard, Once},
+};
 
-#[derive(Debug)]
-pub struct ServerConfig {
-    did_http_endpoint: String,
-    did_attachment_link: String,
-}
 
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl ServerConfig {
     pub fn new() -> ServerConfig {
@@ -59,7 +52,53 @@ pub struct AppConfig {
     is_initialized: bool,
 }
 
+impl AppConfig {
+  fn new() -> Self {
+    self.did,
+    self.key_pairs,
+    self.is_initialized
+  }
+}
+
 #[derive(Clone)]
 pub struct SingletonAppConfig {
     inner: Arc<Mutex<AppConfig>>,
+}
+
+impl SingletonAppConfig {
+    // '_ : 現在のスコープが続く間だけ有効なガード
+    pub fn lock(&self) -> MutexGuard<'_, AppConfig> {
+        self.inner.lock().unwrap()
+    }
+}
+
+pub fn app_config() -> Box<SingletonAppConfig> {
+  static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
+  static ONCE: Once = Once::new();
+
+  unsafe {
+    // 初期化時は競合を防ぐため、Onceで他スレッドを待機
+    ONCE.call_once(|| {
+      let singleton = SingletonAppConfig {
+        inner: Arc::new(Mutex::new(AppConfig::new())),
+      };
+
+      SINGLETON = Some(Box::new(singleton))
+    });
+
+    SINGLETON.clone().unwrap()
+  }
+}
+
+
+#[derive(Debug)]
+pub struct ServerConfig {
+    did_http_endpoint: String,
+    did_attachment_link: String,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self::new()
+    }
 }
