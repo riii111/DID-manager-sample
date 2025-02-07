@@ -1,4 +1,29 @@
+use protocol::keyring::keypair::K256KeyPair;
+
 use crate::config::SingletonAppConfig;
+
+pub enum SecureKeyStoreKey<'a> {
+    Sign(&'a K256KeyPair),
+    Update(&'a K256KeyPair),
+    Recovery(&'a K256KeyPair),
+    Encrypt(&'a K256KeyPair),
+}
+
+#[derive(Debug)]
+pub enum SecureKeyStoreType {
+    Sign,
+    Update,
+    Recovery,
+    Encrypt,
+}
+
+pub trait SecureKeyStore {
+    fn write(&self, key_pair: &SecureKeyStoreKey);
+    fn read_sign(&self) -> Option<K256KeyPair>;
+    fn read_update(&self) -> Option<K256KeyPair>;
+    fn read_recovery(&self) -> Option<K256KeyPair>;
+    // fn read_encrypt(&self) -> Option<X25519Keypair>;
+}
 
 #[derive(Clone)]
 pub struct FileBaseKeyStore {
@@ -8,5 +33,39 @@ pub struct FileBaseKeyStore {
 impl FileBaseKeyStore {
     pub fn new(config: Box<SingletonAppConfig>) -> Self {
         FileBaseKeyStore { config }
+    }
+}
+
+fn k2t(k: &SecureKeyStoreKey) -> SecureKeyStoreType {
+    match k {
+        SecureKeyStoreKey::Sign(_) => SecureKeyStoreType::Sign,
+        SecureKeyStoreKey::Update(_) => SecureKeyStoreType::Update,
+        SecureKeyStoreKey::Recovery(_) => SecureKeyStoreType::Recovery,
+        SecureKeyStoreKey::Encrypt(_) => SecureKeyStoreType::Encrypt,
+    }
+}
+
+impl SecureKeyStore for FileBaseKeyStore {
+    fn write(&self, key_pair: &SecureKeyStoreKey) {
+        log::info!("Called: write_internal (type {:?}", k2t(key_pair));
+
+        let mut config = self.config.lock();
+
+        match key_pair {
+            SecureKeyStoreKey::Sign(k) => config.save_sign_key_pair(k),
+            _ => unimplemented!("Not yet implemented on the status of KeyPair management."),
+        }
+    }
+
+    fn read_sign(&self) -> Option<K256KeyPair> {
+        unimplemented!()
+    }
+
+    fn read_update(&self) -> Option<K256KeyPair> {
+        unimplemented!()
+    }
+
+    fn read_recovery(&self) -> Option<K256KeyPair> {
+        unimplemented!()
     }
 }

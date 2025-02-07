@@ -1,9 +1,14 @@
-use protocol::keyring::keypair::KeyPairHex;
+use home_config::HomeConfig;
+use protocol::keyring::keypair::{K256KeyPair, KeyPair, KeyPairHex, KeyPairingError};
 use serde::{Deserialize, Serialize};
 use std::{
     env,
+    fs::{self, OpenOptions},
+    io::{self, Write},
+    path::Path,
     sync::{Arc, Mutex, MutexGuard, Once},
 };
+use thiserror::Error;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DidCommConfig {
@@ -77,12 +82,54 @@ impl Default for ConfigRoot {
 /// 最低限の設定例
 pub struct AppConfig {
     root: ConfigRoot,
+    config: HomeConfig,
+}
+
+#[derive(Error, Debug)]
+pub enum AppConfigError<E: std::error::Error> {
+    #[error("key decode failed")]
+    DecoreFailed(E),
+    #[error("failed to write config file")]
+    WriteError(home_config::JsonError),
 }
 
 impl AppConfig {
+    fn touch(path: &Path) -> io::Result<()> {
+        let mut file = OpenOptions::new()
+            .truncate(true)
+            .create(true)
+            .write(true)
+            .open(path)?;
+        file.write_all(b"{}")?;
+        Ok(())
+    }
+
+    const APP_NAME: &'static str = "miax";
+    const CONFIG_FILE: &'static str = "config.json";
+
     pub fn new() -> Self {
+        let config = HomeConfig::with_config_dir(AppConfig::APP_NAME, AppConfig::CONFIG_FILE);
+        let config_dir = config.path().parent().unwrap();
+
+        if !Path::exists(config.path()) {
+            fs::create_dir_all(config_dir).unwrap(); // TODO: unwrap_logの適用
+            Self::touch(config.path()).unwrap(); // TODO: unwrap_logの適用
+        }
+
         let root = ConfigRoot::default();
-        AppConfig { root }
+
+        AppConfig { root, config }
+    }
+
+    pub fn write(&self) -> Result<(), AppConfigError<KeyPairingError>> {
+        self.config
+            .save_json(&self.root)
+            .map_err(AppConfigError::WriteError)
+    }
+
+    pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.sign = Some(value.to_hex_key_pair());
+        self.write().unwrap();
     }
 }
 

@@ -18,6 +18,7 @@ impl MiaX {
         let keystore = FileBaseKeyStore::new(config.clone());
 
         // 既存のDIDがあるかチェック
+
         // 新規DIDを生成
         // キーペアを保存しDIDを変革
         todo!("unimplemented")
