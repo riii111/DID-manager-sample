@@ -93,6 +93,18 @@ pub enum AppConfigError<E: std::error::Error> {
     WriteError(home_config::JsonError),
 }
 
+fn convert_to_key<U, V, T: KeyPair<U, V>>(
+    config: &KeyPairHex,
+) -> Result<T, AppConfigError<T::Error>> {
+    T::from_hex_key_pair(config).map_err(AppConfigError::DecoreFailed)
+}
+
+#[inline]
+fn load_key_pair<U, V, T: KeyPair<U, V>>(kind: &Option<KeyPairHex>) -> Option<T> {
+    kind.as_ref()
+        .and_then(|key| convert_to_key(key).map_err(|e| log::error!("{:?}", e)).ok())
+}
+
 impl AppConfig {
     fn touch(path: &Path) -> io::Result<()> {
         let mut file = OpenOptions::new()
@@ -127,9 +139,26 @@ impl AppConfig {
             .map_err(AppConfigError::WriteError)
     }
 
+    pub fn load_sign_key_pair(&self) -> Option<K256KeyPair> {
+        load_key_pair(&self.root.key_pairs.sign)
+    }
+
     pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
         self.root.key_pairs.sign = Some(value.to_hex_key_pair());
         self.write().unwrap();
+    }
+
+    pub fn load_update_key_pair(&self) -> Option<K256KeyPair> {
+        load_key_pair(&self.root.key_pairs.update)
+    }
+
+    pub fn save_update_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.update = Some(value.to_hex_key_pair());
+        self.write().unwrap();
+    }
+
+    pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
+        load_key_pair(&self.root.key_pairs.recovery)
     }
 }
 

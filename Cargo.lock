@@ -29,6 +29,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "home-config",
+ "log",
  "protocol",
  "serde",
  "serde_json",
