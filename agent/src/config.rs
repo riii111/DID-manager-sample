@@ -42,30 +42,10 @@ impl Default for ConfigRoot {
                 .ok()
                 .or(Some("did:example:dummy".to_string())),
             key_pairs: KeyPairsConfig {
-                sign: Some(KeyPairHex {
-                    public_key: std::env::var("MiaX_SIGN_PUBLIC")
-                        .unwrap_or_else(|_| "dummy-sign-public".to_string()),
-                    secret_key: std::env::var("MiaX_SIGN_SECRET")
-                        .unwrap_or_else(|_| "dummy-sign-secret".to_string()),
-                }),
-                update: Some(KeyPairHex {
-                    public_key: std::env::var("MiaX_UPDATE_PUBLIC")
-                        .unwrap_or_else(|_| "dummy-update-public".to_string()),
-                    secret_key: std::env::var("MiaX_UPDATE_SECRET")
-                        .unwrap_or_else(|_| "dummy-update-secret".to_string()),
-                }),
-                recovery: Some(KeyPairHex {
-                    public_key: std::env::var("MiaX_RECOVERY_PUBLIC")
-                        .unwrap_or_else(|_| "dummy-recovery-public".to_string()),
-                    secret_key: std::env::var("MiaX_RECOVERY_SECRET")
-                        .unwrap_or_else(|_| "dummy-recovery-secret".to_string()),
-                }),
-                encrypt: Some(KeyPairHex {
-                    public_key: std::env::var("MiaX_ENCRYPT_PUBLIC")
-                        .unwrap_or_else(|_| "dummy-encrypt-public".to_string()),
-                    secret_key: std::env::var("MiaX_ENCRYPT_SECRET")
-                        .unwrap_or_else(|_| "dummy-encrypt-secret".to_string()),
-                }),
+                sign: None,
+                update: None,
+                recovery: None,
+                encrypt: None,
             },
             didcomm: DidCommConfig {
                 http_body_size_limit: std::env::var("MiaX_DIDCOMM_HTTP_BODY_SIZE_LIMIT")
