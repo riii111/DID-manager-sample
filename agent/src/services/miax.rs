@@ -2,6 +2,8 @@ use crate::app_config;
 use crate::controllers::errors::MiaXErrorCode;
 use crate::controllers::public::miax_create_identifier::MiaxDidResponse;
 use crate::miax::extension::secure_keystore::FileBaseKeyStore;
+use crate::miax::keyring;
+use protocol::keyring;
 
 pub struct MiaX {
     // TODO
@@ -18,6 +20,13 @@ impl MiaX {
         let keystore = FileBaseKeyStore::new(config.clone());
 
         // 既存のDIDがあるかチェック
+        if let Some(did) =
+            keyring::keypair::KeyPairWithConfig::load_keyring(config.clone(), keystore.clone())
+                .ok()
+                .and_then(|v| v.get_identifier().ok())
+        {
+            unimplemented!("call find_identifier")
+        }
 
         // 新規DIDを生成
         // キーペアを保存しDIDを変革
