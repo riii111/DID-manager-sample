@@ -58,13 +58,13 @@ impl SecureKeyStore for FileBaseKeyStore {
     }
 
     fn read_sign(&self) -> Option<K256KeyPair> {
-        log::debug!("Called: read_internal {type: sign}");
+        log::debug!("Called: read_internal (type: sign)");
         let config = self.config.lock();
         config.load_sign_key_pair()
     }
 
     fn read_update(&self) -> Option<K256KeyPair> {
-        log::debug!("Called: read_internal {type: update}");
+        log::debug!("Called: read_internal (type: update)");
         let config = self.config.lock();
         config.load_update_key_pair()
     }
