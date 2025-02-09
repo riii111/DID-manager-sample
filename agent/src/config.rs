@@ -140,6 +140,10 @@ impl AppConfig {
     pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
         load_key_pair(&self.root.key_pairs.recovery)
     }
+
+    pub fn get_did(&self) -> Option<String> {
+        self.root.did.clone()
+    }
 }
 
 #[derive(Clone)]
