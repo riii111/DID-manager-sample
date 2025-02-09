@@ -61,6 +61,14 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         }
     }
 
+    pub fn get_keyring(&self) -> protocol::keyring::keypair::KeyPairing {
+        protocol::keyring::keypair::KeyPairing {
+            sign: self.sign.clone(),
+            update: self.update.clone(),
+            recovery: self.recovery.clone(),
+        }
+    }
+
     pub fn get_identifier(&self) -> Result<String, KeyPairingError> {
         self.config
             .lock()

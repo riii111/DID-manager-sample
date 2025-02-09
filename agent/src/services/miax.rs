@@ -40,12 +40,16 @@ impl MiaX {
             }
         }
 
+        // 新規DIDを生成
         let mut keyring_with_config =
             keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
 
-        // 新規DIDを生成
+        let res = self
+            .did_repository
+            .create_identifier(keyring_with_config.get_keyring())
+            .await?;
         // キーペアを保存しDIDを変革
-        todo!("unimplemented")
+        unimplemented!("save keypair")
     }
 
     pub async fn find_identifier(&self, did: &str) -> anyhow::Result<Option<MiaxDidResponse>> {
