@@ -1,6 +1,6 @@
 use anyhow::Context;
-use chrono::{format::parse, ParseError};
 use protocol::did::sidetree::client::{SidetreeHttpClient, SidetreeHttpClientResponse};
+use url::{ParseError, Url};
 
 #[derive(Clone)]
 pub struct SideTreeClient {
