@@ -25,7 +25,7 @@ impl MiaX {
         &self.did_repository
     }
 
-    pub async fn create_identifier(&self) -> Result<MiaxDidResponse, MiaXErrorCode> {
+    pub async fn create_identifier(&self) -> anyhow::Result<MiaxDidResponse> {
         //  設定とキーストアの準備
         let config = app_config();
         let keystore = FileBaseKeyStore::new(config.clone());
