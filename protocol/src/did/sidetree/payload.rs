@@ -35,3 +35,8 @@ pub struct DidDocument {
     #[serde(rename = "authentication")]
     pub authentication: Option<Vec<String>>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MiaxDidResponse {
+    pub did_document: DidDocument,
+}
