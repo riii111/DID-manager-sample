@@ -70,6 +70,8 @@ impl SecureKeyStore for FileBaseKeyStore {
     }
 
     fn read_recovery(&self) -> Option<K256KeyPair> {
-        unimplemented!()
+        log::debug!("Called: read_internal (type: recovery)");
+        let config = self.config.lock();
+        config.load_recovery_key_pair()
     }
 }
