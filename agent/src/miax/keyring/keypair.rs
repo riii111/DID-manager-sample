@@ -1,12 +1,9 @@
+use crate::{config::SingletonAppConfig, miax::extension::secure_keystore::SecureKeyStore};
 use protocol::keyring::keypair::K256KeyPair;
+use protocol::rand_core::OsRng;
 use thiserror::Error;
 
-use crate::{
-    config::SingletonAppConfig,
-    miax::extension::secure_keystore::{self, SecureKeyStore},
-};
-
-pub struct KeyPairWithConfig<S: SecureKeyStore> {
+pub struct KeyPairingWithConfig<S: SecureKeyStore> {
     sign: K256KeyPair,
     update: K256KeyPair,
     recovery: K256KeyPair,
@@ -25,7 +22,7 @@ pub enum KeyPairingError {
     DIDNotFound,
 }
 
-impl<S: SecureKeyStore> KeyPairWithConfig<S> {
+impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
     pub fn load_keyring(
         config: Box<SingletonAppConfig>,
         secure_keystore: S,
@@ -42,7 +39,7 @@ impl<S: SecureKeyStore> KeyPairWithConfig<S> {
             .ok_or(KeyPairingError::KeyNotFound)?;
         // let encrypt
 
-        Ok(KeyPairWithConfig {
+        Ok(KeyPairingWithConfig {
             sign,
             update,
             recovery,
@@ -50,6 +47,18 @@ impl<S: SecureKeyStore> KeyPairWithConfig<S> {
             config,
             secure_keystore,
         })
+    }
+
+    pub fn create_keyring(config: Box<SingletonAppConfig>, secure_keystore: S) -> Self {
+        let keyring = protocol::keyring::keypair::KeyPairing::create_keyring(OsRng);
+
+        KeyPairingWithConfig {
+            sign: keyring.sign,
+            update: keyring.recovery,
+            recovery: keyring.update,
+            config,
+            secure_keystore,
+        }
     }
 
     pub fn get_identifier(&self) -> Result<String, KeyPairingError> {

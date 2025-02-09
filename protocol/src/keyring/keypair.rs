@@ -1,5 +1,6 @@
 use hex::FromHexError;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
+use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -81,4 +82,18 @@ pub struct KeyPairing {
     pub update: K256KeyPair,
     pub recovery: K256KeyPair,
     // pub encrypt
+}
+
+impl KeyPairing {
+    pub fn create_keyring<T: RngCore + CryptoRng>(mut csprng: T) -> Self {
+        let sign = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        // let encrypt
+        KeyPairing {
+            sign,
+            update,
+            recovery,
+        }
+    }
 }

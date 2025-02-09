@@ -1,6 +1,5 @@
 use crate::app_config;
 use crate::config::server_config;
-use crate::controllers::errors::MiaXErrorCode;
 use crate::miax::extension::secure_keystore::FileBaseKeyStore;
 use crate::miax::keyring;
 use crate::miax::utils::sidetree_client::SideTreeClient;
@@ -32,7 +31,7 @@ impl MiaX {
 
         // 既存のDIDがあるかチェック
         if let Some(did) =
-            keyring::keypair::KeyPairWithConfig::load_keyring(config.clone(), keystore.clone())
+            keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())
                 .ok()
                 .and_then(|v| v.get_identifier().ok())
         {
@@ -40,6 +39,9 @@ impl MiaX {
                 return Ok(json);
             }
         }
+
+        let mut keyring_with_config =
+            keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
 
         // 新規DIDを生成
         // キーペアを保存しDIDを変革

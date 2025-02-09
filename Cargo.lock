@@ -1629,6 +1629,7 @@ dependencies = [
  "hex",
  "http",
  "k256",
+ "rand_core",
  "serde",
  "serde_json",
  "thiserror 1.0.69",

@@ -15,3 +15,4 @@ thiserror = { workspace = true }
 http = { workspace = true }
 trait-variant = { workspace = true }
 serde_json = { workspace = true }
+rand_core = { workspace = true }
