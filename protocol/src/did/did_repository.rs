@@ -17,10 +17,11 @@ pub enum CreateIdentifierError<StudioClientError: std::error::Error> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum FindIdentifierError<StudioClientError: std::error::Error> {
-    // TODO: other error
     #[error("Failed to send request to sidetree: {0}")]
     SidetreeRequestFailed(String),
-    #[error("Failed to send requests: {0}")]
+    #[error("Failed to parse body: {0}")]
+    BodyParse(#[from] serde_json::Error),
+    #[error("Failed to send request: {0}")]
     SidetreeHttpClient(StudioClientError),
 }
 

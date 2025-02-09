@@ -40,6 +40,14 @@ impl SidetreeHttpClient for SideTreeClient {
         &self,
         did: &str,
     ) -> Result<SidetreeHttpClientResponse, Self::Error> {
-        unimplemented!("get_find_identifier")
+        let url = self
+            .base_url
+            .join(&format!("/api/v1/identifiers/{}", did))?;
+
+        let response = self.client.get(url).send().await?;
+
+        let response = SidetreeHttpClientResponse::new(response.status(), response.text().await?);
+
+        Ok(response)
     }
 }
