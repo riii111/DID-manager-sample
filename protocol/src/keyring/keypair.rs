@@ -74,3 +74,11 @@ impl KeyPair<k256::SecretKey, k256::PublicKey> for K256KeyPair {
         })
     }
 }
+
+#[derive(Clone)]
+pub struct KeyPairing {
+    pub sign: K256KeyPair,
+    pub update: K256KeyPair,
+    pub recovery: K256KeyPair,
+    // pub encrypt
+}

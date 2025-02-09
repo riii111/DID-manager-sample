@@ -3,10 +3,9 @@ use crate::controllers::errors::MiaXErrorCode;
 use crate::controllers::public::miax_create_identifier::MiaxDidResponse;
 use crate::miax::extension::secure_keystore::FileBaseKeyStore;
 use crate::miax::keyring;
-use protocol::keyring;
 
 pub struct MiaX {
-    // TODO
+  did_repository: DidRepositoryImpl<SideTreeClient>.
 }
 
 impl MiaX {
@@ -31,5 +30,11 @@ impl MiaX {
         // 新規DIDを生成
         // キーペアを保存しDIDを変革
         todo!("unimplemented")
+    }
+
+    pub async fn find_identifier(&self, did: &str) -> anyhow::Result<Option<MiaxDidResponse>> {
+        let res = self.did_repository.find_identifier(did).await?;
+
+        Ok(res)
     }
 }
