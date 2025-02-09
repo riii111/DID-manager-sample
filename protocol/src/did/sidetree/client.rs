@@ -2,7 +2,7 @@ use http::StatusCode;
 
 #[derive(Clone, Debug)]
 pub struct SidetreeHttpClientResponse {
-    pub(crate) status_code: StatusCode,
+    pub(crate) status_code: StatusCode, // pub(crate): クレート内でのみpublic, 外部クレートからはprivate
     pub(crate) body: String,
 }
 

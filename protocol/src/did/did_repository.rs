@@ -1,10 +1,16 @@
 use super::sidetree::{client::SidetreeHttpClient, payload::MiaxDidResponse};
 use crate::keyring::keypair::KeyPairing;
-use thiserror;
+use http::StatusCode;
+
+// ”protocol”クレートはライブラリとして利用されることを想定しているため、anyhowは使用しない
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateIdentifierError<StudioClientError: std::error::Error> {
     // TODO: other error
+    #[error("Failed to parse body: {0}")]
+    BodyParse(#[from] serde_json::Error),
+    #[error("Failed to create identifier. response: {0}")]
+    SidetreeRequestFailed(String),
     #[error("Failed to send requests: {0}")]
     SidetreeHttpClient(StudioClientError),
 }
@@ -12,6 +18,8 @@ pub enum CreateIdentifierError<StudioClientError: std::error::Error> {
 #[derive(Debug, thiserror::Error)]
 pub enum FindIdentifierError<StudioClientError: std::error::Error> {
     // TODO: other error
+    #[error("Failed to send request to sidetree: {0}")]
+    SidetreeRequestFailed(String),
     #[error("Failed to send requests: {0}")]
     SidetreeHttpClient(StudioClientError),
 }
@@ -65,6 +73,19 @@ where
         &self,
         did: &str,
     ) -> Result<Option<MiaxDidResponse>, Self::FindIdentifierError> {
-        unimplemented!("find_identifier")
+        let response = self
+            .client
+            .get_find_identifier(did)
+            .await
+            .map_err(FindIdentifierError::SidetreeHttpClient)?;
+
+        match response.status_code {
+            StatusCode::OK => Ok(Some(serde_json::from_str(&response.body)?)),
+            StatusCode::NOT_FOUND => Ok(None),
+            _ => Err(FindIdentifierError::SidetreeRequestFailed(format!(
+                "{:?}",
+                response
+            ))),
+        }
     }
 }
