@@ -1,16 +1,28 @@
 use crate::app_config;
+use crate::config::server_config;
 use crate::controllers::errors::MiaXErrorCode;
-use crate::controllers::public::miax_create_identifier::MiaxDidResponse;
 use crate::miax::extension::secure_keystore::FileBaseKeyStore;
 use crate::miax::keyring;
+use crate::miax::utils::sidetree_client::SideTreeClient;
+use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
+
+use protocol::did::sidetree::payload::MiaxDidResponse;
 
 pub struct MiaX {
-  did_repository: DidRepositoryImpl<SideTreeClient>.
+    did_repository: DidRepositoryImpl<SideTreeClient>,
 }
 
 impl MiaX {
     pub fn new() -> Self {
-        Self {}
+        let server_config = server_config();
+        let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint()).unwrap();
+        let did_repository = DidRepositoryImpl::new(sidetree_client);
+
+        MiaX { did_repository }
+    }
+
+    pub fn did_repository(&self) -> &DidRepositoryImpl<SideTreeClient> {
+        &self.did_repository
     }
 
     pub async fn create_identifier(&self) -> Result<MiaxDidResponse, MiaXErrorCode> {
@@ -24,7 +36,9 @@ impl MiaX {
                 .ok()
                 .and_then(|v| v.get_identifier().ok())
         {
-            unimplemented!("call find_identifier")
+            if let Some(json) = self.find_identifier(&did).await? {
+                return Ok(json);
+            }
         }
 
         // 新規DIDを生成
