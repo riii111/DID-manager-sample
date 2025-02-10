@@ -38,6 +38,14 @@ pub enum JwkToK256Error {
 }
 
 #[derive(Error, Debug)]
+pub enum JwkToX25519Error {
+    #[error("decode error: {0:?}")]
+    Decode(Option<DecodeError>),
+    #[error("different crv")]
+    DifferentCrv,
+}
+
+#[derive(Error, Debug)]
 pub enum K256ToJwkError {
     #[error("points are invalid")]
     PointsInvalid,
@@ -89,6 +97,34 @@ impl TryFrom<k256::PublicKey> for Jwk {
                 Ok(Jwk { kty, crv, x, y })
             }
             _ => Err(K256ToJwkError::PointsInvalid),
+        }
+    }
+}
+
+impl TryFrom<Jwk> for x25519_dalek::PublicKey {
+    type Error = JwkToX25519Error;
+    fn try_from(value: Jwk) -> Result<Self, Self::Error> {
+        if value.crv != "X25519" {
+            return Err(JwkToX25519Error::DifferentCrv);
+        }
+        let pk = BASE64URL_NOPAD
+            .decode(value.x.as_bytes())
+            .map_err(|e| JwkToX25519Error::Decode(Some(e)))?;
+        let pk: [u8; 32] = pk.try_into().map_err(|_| JwkToX25519Error::Decode(None))?;
+        Ok(pk.into())
+    }
+}
+
+impl From<x25519_dalek::PublicKey> for Jwk {
+    fn from(value: x25519_dalek::PublicKey) -> Self {
+        let x = BASE64URL_NOPAD.encode(value.as_bytes());
+        let kty = "OKP".to_string();
+        let crv = "X25519".to_string();
+        Jwk {
+            kty,
+            crv,
+            x,
+            y: None,
         }
     }
 }

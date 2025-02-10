@@ -1,5 +1,6 @@
 use crate::keyring::jwk::Jwk;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServiceEndpoint {
@@ -112,4 +113,20 @@ pub struct DidPatchDocument {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MiaxDidResponse {
     pub did_document: DidDocument,
+}
+
+#[derive(Debug, Error)]
+pub enum DidCreatePayloadError {
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
+    #[error("Failed to convert to JWK: {0}")]
+    Jwk(#[from] crate::keyring::jwk::K256ToJwkError),
+}
+
+pub fn did_create_payload(
+    replace_payload: DidPatchDocument,
+    update_key: k256::PublicKey,
+    recovery_key: k256::PublicKey,
+) -> Result<String, DidCreatePayloadError> {
+    unimplemented!("did_create_payload")
 }

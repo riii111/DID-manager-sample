@@ -72,7 +72,7 @@ where
     async fn create_identifier(
         &self,
         keyring: KeyPairing,
-    ) -> Result<MiaxDidResponse, Self::CreateIdentifierError> {
+    ) -> Result<MiaxDidResponse, CreateIdentifierError<C::Error> {
         let sign = keyring.sign.get_public_key().to_public_key(
             "EcdsaSecp256k1VerificationKey2019".to_string(),
             "signingKey".to_string(),
