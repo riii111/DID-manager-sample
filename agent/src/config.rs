@@ -1,5 +1,7 @@
 use home_config::HomeConfig;
-use protocol::keyring::keypair::{K256KeyPair, KeyPair, KeyPairHex, KeyPairingError};
+use protocol::keyring::keypair::{
+    K256KeyPair, KeyPair, KeyPairHex, KeyPairingError, X25519KeyPair,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     env,
@@ -139,6 +141,20 @@ impl AppConfig {
 
     pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
         load_key_pair(&self.root.key_pairs.recovery)
+    }
+
+    pub fn save_recovery_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.recovery = Some(value.to_hex_key_pair());
+        self.write().unwrap();
+    }
+
+    pub fn load_encrypt_key_pair(&self) -> Option<X25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.encrypt)
+    }
+
+    pub fn save_encrypt_key_pair(&mut self, value: &X25519KeyPair) {
+        self.root.key_pairs.encrypt = Some(value.to_hex_key_pair());
+        self.write().unwrap();
     }
 
     pub fn get_did(&self) -> Option<String> {

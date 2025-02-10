@@ -1,5 +1,5 @@
 use crate::{config::SingletonAppConfig, miax::extension::secure_keystore::SecureKeyStore};
-use protocol::keyring::keypair::K256KeyPair;
+use protocol::keyring::keypair::{K256KeyPair, X25519KeyPair};
 use protocol::rand_core::OsRng;
 use thiserror::Error;
 
@@ -7,7 +7,7 @@ pub struct KeyPairingWithConfig<S: SecureKeyStore> {
     sign: K256KeyPair,
     update: K256KeyPair,
     recovery: K256KeyPair,
-    // encrypt:
+    encrypt: X25519KeyPair,
     config: Box<SingletonAppConfig>,
     secure_keystore: S,
 }
@@ -37,13 +37,15 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         let recovery = secure_keystore
             .read_recovery()
             .ok_or(KeyPairingError::KeyNotFound)?;
-        // let encrypt
+        let encrypt = secure_keystore
+            .read_encrypt()
+            .ok_or(KeyPairingError::KeyNotFound)?;
 
         Ok(KeyPairingWithConfig {
             sign,
             update,
             recovery,
-            // encrypt,
+            encrypt,
             config,
             secure_keystore,
         })

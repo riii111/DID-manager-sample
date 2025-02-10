@@ -1,4 +1,4 @@
-use protocol::keyring::keypair::K256KeyPair;
+use protocol::keyring::keypair::{K256KeyPair, X25519KeyPair};
 
 use crate::config::SingletonAppConfig;
 
@@ -22,7 +22,7 @@ pub trait SecureKeyStore {
     fn read_sign(&self) -> Option<K256KeyPair>;
     fn read_update(&self) -> Option<K256KeyPair>;
     fn read_recovery(&self) -> Option<K256KeyPair>;
-    // fn read_encrypt(&self) -> Option<X25519Keypair>;
+    fn read_encrypt(&self) -> Option<X25519KeyPair>;
 }
 
 #[derive(Clone)]
@@ -73,5 +73,11 @@ impl SecureKeyStore for FileBaseKeyStore {
         log::debug!("Called: read_internal (type: recovery)");
         let config = self.config.lock();
         config.load_recovery_key_pair()
+    }
+
+    fn read_encrypt(&self) -> Option<X25519KeyPair> {
+        log::debug!("Called: read_internal (type: encrypt)");
+        let config = self.config.lock();
+        config.load_encrypt_key_pair()
     }
 }
