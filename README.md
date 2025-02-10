@@ -1,1 +1,1 @@
-# iot-device-manager
+# DID-manager-sample
