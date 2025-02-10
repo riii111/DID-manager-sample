@@ -49,9 +49,11 @@ impl KeyPair<k256::SecretKey, k256::PublicKey> for K256KeyPair {
     fn get_secret_key(&self) -> k256::SecretKey {
         self.secret_key.clone()
     }
+
     fn get_public_key(&self) -> k256::PublicKey {
         self.public_key
     }
+
     fn to_hex_key_pair(&self) -> KeyPairHex {
         let sk = self.secret_key.to_bytes();
         let secret_key = hex::encode(sk);
@@ -62,6 +64,7 @@ impl KeyPair<k256::SecretKey, k256::PublicKey> for K256KeyPair {
             public_key,
         }
     }
+
     fn from_hex_key_pair(kp: &KeyPairHex) -> Result<Self, Self::Error> {
         let secret_key = hex::decode(&kp.secret_key)?;
         let secret_key = k256::SecretKey::from_slice(&secret_key)
