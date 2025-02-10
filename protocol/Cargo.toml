@@ -17,3 +17,4 @@ trait-variant = { workspace = true }
 serde_json = { workspace = true }
 rand_core = { workspace = true }
 x25519-dalek = { workspace = true }
+data-encoding = { workspace = true }
