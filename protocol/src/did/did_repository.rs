@@ -1,5 +1,11 @@
-use super::sidetree::{client::SidetreeHttpClient, payload::MiaxDidResponse};
-use crate::keyring::keypair::KeyPairing;
+use super::sidetree::{
+    client::SidetreeHttpClient,
+    payload::{DidPatchDocument, MiaxDidResponse},
+};
+use crate::{
+    did::sidetree::payload::ToPublicKey,
+    keyring::keypair::{KeyPair, KeyPairing},
+};
 use http::StatusCode;
 
 // ”protocol”クレートはライブラリとして利用されることを想定しているため、anyhowは使用しない
@@ -67,6 +73,29 @@ where
         &self,
         keyring: KeyPairing,
     ) -> Result<MiaxDidResponse, Self::CreateIdentifierError> {
+        let sign = keyring.sign.get_public_key().to_public_key(
+            "EcdsaSecp256k1VerificationKey2019".to_string(),
+            "signingKey".to_string(),
+            vec!["auth".to_string(), "general".to_string()],
+        )?;
+
+        let enc = keyring
+            .encrypt
+            .get_public_key()
+            .to_public_key(
+                "X25519KeyAgreementKey2019".to_string(),
+                "encryptionKey".to_string(),
+                vec!["auth".to_string(), "general".to_string()],
+            )
+            .unwrap();
+        let update = keyring.update.get_public_key();
+        let recovery = keyring.recovery.get_public_key();
+        let document = DidPatchDocument {
+            public_keys: vec![sign, enc],
+            service_endpoints: vec![],
+        };
+        let payload = did_create_payload(document, update, recovery)?;
+
         unimplemented!("create_identifier")
     }
 
