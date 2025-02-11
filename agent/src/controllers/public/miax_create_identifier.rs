@@ -5,6 +5,7 @@ use protocol::did::sidetree::payload::{DidDocument, MiaxDidResponse};
 pub async fn handler() -> Result<Json<MiaxDidResponse>, StatusCode> {
     let service = MiaX::new();
     match service.create_identifier().await {
+        Ok(v) => Ok(Json(v)),
         Err(e) => {
             log::error!("ERROR: Failure to generate DID");
             Err(MiaXErrorCode::CreateIdentifierInternal)?
