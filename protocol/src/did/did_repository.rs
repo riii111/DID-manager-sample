@@ -1,11 +1,15 @@
+use std::convert::TryInto;
+
+use http::StatusCode;
+
 use super::sidetree::{
     client::SidetreeHttpClient,
-    payload::{MiaxDidResponse, DidPatchDocument, did_create_payload},
+    payload::{did_create_payload, DidPatchDocument, MiaxDidResponse, ToPublicKey},
 };
-use crate::{
-    keyring::keypair::KeyPairing,
+use crate::keyring::{
+    jwk::Jwk,
+    keypair::{KeyPair, KeyPairing},
 };
-use http::StatusCode;
 
 // ”protocol”クレートはライブラリとして利用されることを想定しているため、anyhowは使用しない
 
@@ -71,7 +75,7 @@ where
     async fn create_identifier(
         &self,
         keyring: KeyPairing,
-    ) -> Result<MiaxDidResponse, CreateIdentifierError<C::Error> {
+    ) -> Result<MiaxDidResponse, CreateIdentifierError<C::Error>> {
         let sign = keyring.sign.get_public_key().to_public_key(
             "EcdsaSecp256k1VerificationKey2019".to_string(),
             "signingKey".to_string(),
@@ -95,7 +99,19 @@ where
         };
         let payload = did_create_payload(document, update, recovery)?;
 
-        unimplemented!("create_identifier")
+        let response = self
+            .client
+            .post_create_identifier(&payload)
+            .await
+            .map_err(CreateIdentifierError::SidetreeHttpClient)?;
+        if response.status_code.is_success() {
+            Ok(serde_json::from_str(&response.body)?)
+        } else {
+            Err(CreateIdentifierError::SidetreeRequestFailed(format!(
+                "{:?}",
+                response
+            )))
+        }
     }
 
     async fn find_identifier(
