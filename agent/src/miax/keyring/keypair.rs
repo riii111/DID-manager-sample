@@ -1,3 +1,4 @@
+use crate::miax::extension::secure_keystore::SecureKeyStoreKey;
 use crate::{config::SingletonAppConfig, miax::extension::secure_keystore::SecureKeyStore};
 use protocol::keyring::keypair::{K256KeyPair, X25519KeyPair};
 use protocol::rand_core::OsRng;
@@ -70,6 +71,22 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
             update: self.update.clone(),
             recovery: self.recovery.clone(),
             encrypt: self.encrypt.clone(),
+        }
+    }
+
+    pub fn save(&mut self, did: &str) {
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::Sign(&self.sign));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::Update(&self.update));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::Recovery(&self.recovery));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::Encrypt(&self.encrypt));
+        {
+            let mut config = self.config.lock();
+            config.save_did(did);
+            config.save_is_initialized(true);
         }
     }
 

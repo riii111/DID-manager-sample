@@ -53,7 +53,9 @@ impl SecureKeyStore for FileBaseKeyStore {
 
         match key_pair {
             SecureKeyStoreKey::Sign(k) => config.save_sign_key_pair(k),
-            _ => unimplemented!("Not yet implemented on the status of KeyPair management."),
+            SecureKeyStoreKey::Update(k) => config.save_update_key_pair(k),
+            SecureKeyStoreKey::Recovery(k) => config.save_recovery_key_pair(k),
+            SecureKeyStoreKey::Encrypt(k) => config.save_encrypt_key_pair(k),
         }
     }
 

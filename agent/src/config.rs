@@ -160,6 +160,16 @@ impl AppConfig {
     pub fn get_did(&self) -> Option<String> {
         self.root.did.clone()
     }
+
+    pub fn save_did(&mut self, value: &str) {
+        self.root.did = Some(value.to_string());
+        self.write().unwrap() // TODO: unwrap_log
+    }
+
+    pub fn save_is_initialized(&mut self, value: bool) {
+        self.root.is_initialized = value;
+        self.write().unwrap() // TODO: unwrap_log
+    }
 }
 
 #[derive(Clone)]
