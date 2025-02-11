@@ -33,7 +33,22 @@ impl SidetreeHttpClient for SideTreeClient {
         &self,
         body: &str,
     ) -> Result<SidetreeHttpClientResponse, Self::Error> {
-        unimplemented!("post_create_identifier");
+        let url = self.base_url.join("/api/v1/operations")?;
+
+        let response = self
+            .client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await?;
+
+        let status = response.status();
+        let body = response.text().await?;
+
+        let response = SidetreeHttpClientResponse::new(status, body);
+
+        Ok(response)
     }
 
     async fn get_find_identifier(
