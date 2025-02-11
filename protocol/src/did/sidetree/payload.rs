@@ -1,6 +1,9 @@
 use crate::keyring::jwk::Jwk;
+use data_encoding::BASE64_NOPAD;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::did::sidetree::multihash;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServiceEndpoint {
@@ -110,9 +113,48 @@ pub struct DidPatchDocument {
     pub service_endpoints: Vec<ServiceEndpoint>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "action")]
+pub enum DidAction {
+    #[serde(rename = "replace")]
+    Replace { document: DidPatchDocument },
+    #[serde(rename = "add-public-keys")]
+    AddPublicKeys {
+        #[serde(rename = "public_keys")]
+        public_keys: Vec<PublicKeyPayload>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct DidDeltaObject {
+    patches: Vec<DidAction>,
+    update_commitment: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct DidSuffixObject {
+    delta_hash: String,
+    recovery_commitment: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MiaxDidResponse {
     pub did_document: DidDocument,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
+enum DidPayload {
+    #[serde(rename = "create")]
+    Create { delta: String, suffix_data: String },
+    #[serde(rename = "update")]
+    Update {
+        delta: String,
+        #[serde(rename = "did_suffix")]
+        did_suffix: String,
+        #[serde(rename = "signed_data")]
+        signed_data: String,
+    },
 }
 
 #[derive(Debug, Error)]
@@ -123,10 +165,60 @@ pub enum DidCreatePayloadError {
     Jwk(#[from] crate::keyring::jwk::K256ToJwkError),
 }
 
+// JCSを利用してJSON値を正規化し、バイト列に変換
+#[inline]
+fn canon<T>(value: &T) -> Result<Vec<u8>, serde_json::Error>
+where
+    T: ?Sized + Serialize,
+{
+    Ok(serde_jcs::to_string(value)?.into_bytes())
+}
+
+// 公開鍵からコミットメントを生成（二重ハッシュによるセキュリティ強化）
+/// 参考: https://identity.foundation/sidetree/spec/#hashing-process
+#[inline]
+fn commitment_scheme(value: &Jwk) -> Result<String, serde_json::Error> {
+    Ok(multihash::double_hash_encode(&canon(value)?))
+}
+
+// 参考 : https://identity.foundation/sidetree/spec/
 pub fn did_create_payload(
-    replace_payload: DidPatchDocument,
-    update_key: k256::PublicKey,
-    recovery_key: k256::PublicKey,
+    replace_payload: DidPatchDocument, // 新しいDIDドキュメントの内容
+    update_key: k256::PublicKey,       // 更新用の公開鍵
+    recovery_key: k256::PublicKey,     // リカバリ用の公開鍵
 ) -> Result<String, DidCreatePayloadError> {
-    unimplemented!("did_create_payload")
+    // 更新・リカバリ用のコミットメントを生成
+    let update_commitment = commitment_scheme(&update_key.try_into()?)?;
+    let recovery_commitment = commitment_scheme(&recovery_key.try_into()?)?;
+
+    // DIDドキュメントの更新操作patchを作成
+    let patch = DidAction::Replace {
+        document: replace_payload,
+    };
+
+    // 変更内容を作成してエンコード
+    let delta = DidDeltaObject {
+        patches: vec![patch],
+        update_commitment,
+    };
+    let delta = canon(&delta)?;
+    let delta_hash = multihash::hash_encode(&delta);
+
+    // suffix（DID識別子の一部）を生成
+    let suffix = DidSuffixObject {
+        delta_hash,
+        recovery_commitment,
+    };
+    let suffix = canon(&suffix)?;
+    let encoded_delta = BASE64_NOPAD.encode(&delta);
+    let encoded_suffix = BASE64_NOPAD.encode(&suffix);
+
+    // 最終的なペイロードを作成
+    let payload = DidPayload::Create {
+        delta: encoded_delta,
+        suffix_data: encoded_suffix,
+    };
+
+    // JSON形式に変換して返す
+    Ok(serde_jcs::to_string(&payload)?)
 }

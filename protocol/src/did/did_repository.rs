@@ -1,10 +1,9 @@
 use super::sidetree::{
     client::SidetreeHttpClient,
-    payload::{DidPatchDocument, MiaxDidResponse},
+    payload::{MiaxDidResponse, DidPatchDocument, did_create_payload},
 };
 use crate::{
-    did::sidetree::payload::ToPublicKey,
-    keyring::keypair::{KeyPair, KeyPairing},
+    keyring::keypair::KeyPairing,
 };
 use http::StatusCode;
 
