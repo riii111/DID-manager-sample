@@ -1,6 +1,6 @@
 use crate::{controllers::errors::MiaXErrorCode, services::miax::MiaX};
 use axum::{http::StatusCode, response::Json};
-use protocol::did::sidetree::payload::{DidDocument, MiaxDidResponse};
+use protocol::did::sidetree::payload::MiaxDidResponse;
 
 pub async fn handler() -> Result<Json<MiaxDidResponse>, StatusCode> {
     let service = MiaX::new();
