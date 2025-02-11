@@ -58,6 +58,7 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
             sign: keyring.sign,
             update: keyring.recovery,
             recovery: keyring.update,
+            encrypt: keyring.encrypt,
             config,
             secure_keystore,
         }
@@ -68,6 +69,7 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
             sign: self.sign.clone(),
             update: self.update.clone(),
             recovery: self.recovery.clone(),
+            encrypt: self.encrypt.clone(),
         }
     }
 
