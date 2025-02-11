@@ -1,26 +1,24 @@
-use std::convert::TryInto;
-
 use http::StatusCode;
 
 use super::sidetree::{
     client::SidetreeHttpClient,
     payload::{did_create_payload, DidPatchDocument, MiaxDidResponse, ToPublicKey},
 };
-use crate::keyring::{
-    jwk::Jwk,
-    keypair::{KeyPair, KeyPairing},
-};
+use crate::keyring::keypair::{KeyPair, KeyPairing};
 
 // ”protocol”クレートはライブラリとして利用されることを想定しているため、anyhowは使用しない
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateIdentifierError<StudioClientError: std::error::Error> {
-    // TODO: other error
+    #[error("Failed to convert to JWK: {0}")]
+    Jwk(#[from] crate::keyring::jwk::K256ToJwkError),
+    #[error("Failed to build operation payload: {0}")]
+    PayloadBuildFailed(#[from] crate::did::sidetree::payload::DidCreatePayloadError),
     #[error("Failed to parse body: {0}")]
     BodyParse(#[from] serde_json::Error),
     #[error("Failed to create identifier. response: {0}")]
     SidetreeRequestFailed(String),
-    #[error("Failed to send requests: {0}")]
+    #[error("Failed to send request: {0}")]
     SidetreeHttpClient(StudioClientError),
 }
 
