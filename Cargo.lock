@@ -1672,6 +1672,7 @@ dependencies = [
  "rand_core",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 1.0.69",
  "trait-variant",
  "x25519-dalek",
