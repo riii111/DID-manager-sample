@@ -3,9 +3,13 @@ use protocol::keyring::keypair::{K256KeyPair, X25519KeyPair};
 use crate::config::SingletonAppConfig;
 
 pub enum SecureKeyStoreKey<'a> {
+    /// 署名鍵
     Sign(&'a K256KeyPair),
+    /// 更新鍵
     Update(&'a K256KeyPair),
+    /// リカバリ鍵
     Recovery(&'a K256KeyPair),
+    /// 暗号化鍵
     Encrypt(&'a X25519KeyPair),
 }
 
@@ -17,6 +21,7 @@ pub enum SecureKeyStoreType {
     Encrypt,
 }
 
+/// セキュア鍵ストアのインターフェース
 pub trait SecureKeyStore {
     fn write(&self, key_pair: &SecureKeyStoreKey);
     fn read_sign(&self) -> Option<K256KeyPair>;
@@ -25,6 +30,7 @@ pub trait SecureKeyStore {
     fn read_encrypt(&self) -> Option<X25519KeyPair>;
 }
 
+/// ファイルベースの鍵ストア実装
 #[derive(Clone)]
 pub struct FileBaseKeyStore {
     config: Box<SingletonAppConfig>,
@@ -49,6 +55,7 @@ impl SecureKeyStore for FileBaseKeyStore {
     fn write(&self, key_pair: &SecureKeyStoreKey) {
         log::info!("Called: write_internal (type {:?}", k2t(key_pair));
 
+        // 設定へのアクセスはMutexで保護
         let mut config = self.config.lock();
 
         match key_pair {

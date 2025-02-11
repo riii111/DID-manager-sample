@@ -4,6 +4,8 @@ use protocol::keyring::keypair::{K256KeyPair, X25519KeyPair};
 use protocol::rand_core::OsRng;
 use thiserror::Error;
 
+/// 設定とセキュア鍵ストアを統合した鍵ペア管理構造体
+/// 鍵ペアのロード、生成、永続化、DID識別子の管理などを担当
 pub struct KeyPairingWithConfig<S: SecureKeyStore> {
     sign: K256KeyPair,
     update: K256KeyPair,
@@ -13,6 +15,7 @@ pub struct KeyPairingWithConfig<S: SecureKeyStore> {
     secure_keystore: S,
 }
 
+/// 鍵ペアリング処理に関連するエラー型
 #[derive(Error, Debug)]
 pub enum KeyPairingError {
     #[error("create keyring failed: {0}")]

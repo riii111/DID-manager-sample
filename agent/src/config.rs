@@ -14,25 +14,35 @@ use thiserror::Error;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DidCommConfig {
+    /// DIDComm HTTP Body Size Limit
     pub http_body_size_limit: usize,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct KeyPairsConfig {
+    /// 署名鍵ペア
     sign: Option<KeyPairHex>,
+    /// 更新鍵ペア
     update: Option<KeyPairHex>,
+    /// リカバリ鍵ペア
     recovery: Option<KeyPairHex>,
+    /// 暗号化鍵ペア
     encrypt: Option<KeyPairHex>,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct ConfigRoot {
+    /// DID
     did: Option<String>,
+    /// 鍵ペア設定
     key_pairs: KeyPairsConfig,
     // extensions:
     // metrics
+    /// DIDComm設定
     didcomm: DidCommConfig,
+    /// 初期化済みフラグ
     is_initialized: bool,
+    /// 設定スキーマバージョン
     schema_version: u8,
 }
 
@@ -61,7 +71,7 @@ impl Default for ConfigRoot {
     }
 }
 
-/// 最低限の設定例
+/// アプリケーション全体の設定を管理する構造体。
 pub struct AppConfig {
     root: ConfigRoot,
     config: HomeConfig,
@@ -75,6 +85,7 @@ pub enum AppConfigError<E: std::error::Error> {
     WriteError(home_config::JsonError),
 }
 
+/// KeyPairHex設定からKeyPair型へ変換する関数
 fn convert_to_key<U, V, T: KeyPair<U, V>>(
     config: &KeyPairHex,
 ) -> Result<T, AppConfigError<T::Error>> {
@@ -88,6 +99,7 @@ fn load_key_pair<U, V, T: KeyPair<U, V>>(kind: &Option<KeyPairHex>) -> Option<T>
 }
 
 impl AppConfig {
+    /// 設定ファイルが存在しない場合に作成する
     fn touch(path: &Path) -> io::Result<()> {
         let mut file = OpenOptions::new()
             .truncate(true)

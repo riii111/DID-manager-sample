@@ -73,6 +73,8 @@ pub struct PublicKeyPayload {
 }
 
 pub trait ToPublicKey<T: TryInto<Jwk>> {
+    /// 公開鍵をJWK形式に変換する
+    /// このトレイトにより、異なる公開鍵形式（k256, x25519）を、DID DocumentやSidetreeペイロードで利用可能なJWK形式に変換可能となる
     fn to_public_key(
         self,
         key_type: String,
@@ -90,9 +92,9 @@ where
     /// K256KeyPairやX25519KeyPairが持つ公開鍵を、DIDDocumentなどで利用されるJWK形式に変換する
     fn to_public_key(
         self,
-        key_type: String,
-        key_id: String,
-        purpose: Vec<String>,
+        key_type: String, // JWKの"kty"（キーの種類）をあらわす（例: "EC", "OKP"）
+        key_id: String,   // JWKの"id"（キーのID）をあらわす（例: "kid"）
+        purpose: Vec<String>, // JWKの"purpose"（用途）をあらわす（例: ["authentication"], ["assertionMethod"]）
     ) -> Result<PublicKeyPayload, <T>::Error> {
         let jwk: Jwk = self.try_into()?;
         Ok(PublicKeyPayload {
@@ -174,8 +176,22 @@ where
     Ok(serde_jcs::to_string(value)?.into_bytes())
 }
 
-// 公開鍵からコミットメントを生成（二重ハッシュによるセキュリティ強化）
-/// 参考: https://identity.foundation/sidetree/spec/#hashing-process
+/// 公開鍵からコミットメントを生成（二重ハッシュによるセキュリティ強化）
+///
+/// コミットメントは、公開鍵をハッシュ化した値であり、DIDドキュメントの更新やリカバリの際に、
+/// 公開鍵の正当性を検証するために利用される
+///
+/// # 処理の流れ
+/// 1. 公開鍵を JWK (JSON Web Key) 形式に変換
+/// 2. JWK を JCS (JSON Canonicalization Scheme) で正規化 (JSONの形式を標準化)
+/// 3. 正規化された JWK をバイト列に変換
+/// 4. バイト列を SHA-256 でハッシュ化 (1回目)
+/// 5. ハッシュ値をさらに SHA-256 でハッシュ化 (2回目、二重ハッシュ)
+/// 6. 二重ハッシュ値を Multihash 形式でエンコード (Base58Btc エンコード)
+/// 7. Multihash 形式のハッシュ値を Base64URL エンコードして返す
+///
+/// # 参考文献
+/// - [Sidetree Specification - Hashing Process](https://identity.foundation/sidetree/spec/#hashing-process)
 #[inline]
 fn commitment_scheme(value: &Jwk) -> Result<String, serde_json::Error> {
     Ok(multihash::double_hash_encode(&canon(value)?))
@@ -187,11 +203,11 @@ pub fn did_create_payload(
     update_key: k256::PublicKey,       // 更新用の公開鍵
     recovery_key: k256::PublicKey,     // リカバリ用の公開鍵
 ) -> Result<String, DidCreatePayloadError> {
-    // 更新・リカバリ用のコミットメントを生成
+    // 更新・リカバリ用のコミットメント（公開鍵から生成されるハッシュ値）を生成
     let update_commitment = commitment_scheme(&update_key.try_into()?)?;
     let recovery_commitment = commitment_scheme(&recovery_key.try_into()?)?;
 
-    // DIDドキュメントの更新操作patchを作成
+    // DIDドキュメントの更新操作patchを作成（Sidetreeプロトコルでは、DIDドキュメントの更新は"patch"と表現される）
     let patch = DidAction::Replace {
         document: replace_payload,
     };
@@ -205,11 +221,15 @@ pub fn did_create_payload(
     let delta_hash = multihash::hash_encode(&delta);
 
     // suffix（DID識別子の一部）を生成
+    // suffixは、DID識別子（did:miax:suffix ）の一部として利用され、DIDのUniquenessを担保するために利用される
     let suffix = DidSuffixObject {
         delta_hash,
         recovery_commitment,
     };
+    // JCSで正規化・バイト列に置換
     let suffix = canon(&suffix)?;
+
+    // BASE64URLでエンコード
     let encoded_delta = BASE64_NOPAD.encode(&delta);
     let encoded_suffix = BASE64_NOPAD.encode(&suffix);
 
@@ -219,6 +239,6 @@ pub fn did_create_payload(
         suffix_data: encoded_suffix,
     };
 
-    // JSON形式に変換して返す
+    // Sidetreeプロトコルに準拠したJSON形式のペイロードを返す
     Ok(serde_jcs::to_string(&payload)?)
 }
