@@ -6,7 +6,7 @@ pub enum SecureKeyStoreKey<'a> {
     Sign(&'a K256KeyPair),
     Update(&'a K256KeyPair),
     Recovery(&'a K256KeyPair),
-    Encrypt(&'a K256KeyPair),
+    Encrypt(&'a X25519KeyPair),
 }
 
 #[derive(Debug)]
