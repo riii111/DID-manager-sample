@@ -29,7 +29,7 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         secure_keystore: S,
     ) -> Result<Self, KeyPairingError> {
         let sign = secure_keystore
-            .read_update()
+            .read_sign()
             .ok_or(KeyPairingError::KeyNotFound)?;
         let update = secure_keystore
             .read_update()

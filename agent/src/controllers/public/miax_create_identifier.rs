@@ -7,7 +7,7 @@ pub async fn handler() -> Result<Json<MiaxDidResponse>, StatusCode> {
     match service.create_identifier().await {
         Ok(v) => Ok(Json(v)),
         Err(e) => {
-            log::error!("ERROR: Failure to generate DID");
+            log::error!("{:?}", e);
             Err(MiaXErrorCode::CreateIdentifierInternal)?
         }
     }

@@ -1,4 +1,4 @@
-use axum::{routing::get, Router};
+use axum::Router;
 use dotenvy::dotenv;
 use tokio;
 pub mod cli;
