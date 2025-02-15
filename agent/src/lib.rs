@@ -4,6 +4,7 @@ use tokio;
 pub mod cli;
 mod config;
 mod miax;
+mod network;
 mod services;
 pub use crate::config::app_config;
 pub mod controllers;
