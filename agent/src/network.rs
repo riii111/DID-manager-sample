@@ -53,7 +53,7 @@ pub struct Network {
 impl Network {
   fn touch(path: &Path) -> io::Result<()> {
     let mut file = OpenOptions::new()
-        .truncate
+        .truncate(true)
         .create(true)
         .write(true)
         .open(path)?;
