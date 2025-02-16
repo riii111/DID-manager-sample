@@ -1,5 +1,7 @@
-use super::{did_accessor::DidAccessorImpl, sidetree_client::SideTreeClient};
+use super::did_accessor::DidAccessorImpl;
+use crate::miax::utils::sidetree_client::SideTreeClient;
 use protocol::did::did_repository::DidRepositoryImpl;
+use protocol::didcomm::encrypted::DidCommServiceWithAttachment;
 use reqwest::Url;
 
 pub struct StudioClient {
