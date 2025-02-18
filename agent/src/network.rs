@@ -1,7 +1,7 @@
 use home_config::HomeConfig;
-use io;
 use serde::{Deserialize, Serialize};
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
+use std::io::{self, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, Once};
 
@@ -16,6 +16,7 @@ impl SingletonNetworkConfig {
     }
 }
 
+#[allow(static_mut_refs)]
 pub fn network_config() -> Box<SingletonNetworkConfig> {
     static mut SINGLETON: Option<Box<SingletonNetworkConfig>> = None;
     static ONCE: Once = Once::new();

@@ -1,4 +1,4 @@
-use crate::services::miax::MiaX;
+use crate::services::{miax::MiaX, studio::Studio};
 
 struct MessageReceiveUsecase {
     studio: Studio,
