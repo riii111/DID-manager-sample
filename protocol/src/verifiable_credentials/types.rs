@@ -2,6 +2,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VerifiedContainer {
+    pub message: VerifiableCredentials,
+    pub metadata: Option<Value>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct Issuer {
     #[serde(rename = "id")]
