@@ -55,8 +55,15 @@ fn get_key(key_type: &str, did_document: &DidDocument) -> Result<Jwk, GetPublicK
     Ok(public_key.public_key_jwk)
 }
 
+pub fn get_encrypt_key(
+    did_document: &DidDocument,
+) -> Result<x25519_dalek::PublicKey, GetPublicKeyError> {
+    let public_key = get_key("#encryptionKey", did_document)?;
+    Ok(public_key.try_into()?)
+}
+
 // Send: ある型Tが”スレッド間で安全に所有権を移動できること"を示す
-// Sync: ある型が"スレッド間で安全に参照できること"を示すs
+// Sync: ある型が"スレッド間で安全に参照できること"を示す
 
 // DID Repositoryのインターフェース定義
 #[trait_variant::make(Send)] // トレイト自体がSendであり、トレイトオブジェクト（dyn Trait）が"Send + Sync + 'static"であることを保証
