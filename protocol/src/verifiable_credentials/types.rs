@@ -23,10 +23,13 @@ pub struct CredentialSubject {
     pub container: Value,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct Proof {
     #[serde(rename = "type")]
     pub r#type: String,
+
+    #[serde(rename = "proofPurpose")]
+    pub proof_purpose: String,
 
     #[serde(rename = "created")]
     pub created: DateTime<Utc>,
