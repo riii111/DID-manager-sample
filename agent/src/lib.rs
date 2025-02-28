@@ -9,8 +9,8 @@ mod services;
 pub use crate::config::app_config;
 pub mod controllers;
 pub mod server;
+pub use crate::config::server_config;
 pub use network::network_config;
-use std::fs;
 
 pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Result<()> {
     dotenv().ok();
