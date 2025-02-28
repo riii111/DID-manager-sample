@@ -3,6 +3,7 @@ use crate::did::sidetree::payload::DidDocument;
 use crate::didcomm::types::{DidCommMessage, FindSenderError};
 use crate::keyring::keypair::KeyPair;
 use crate::keyring::keypair::KeyPairing;
+use crate::verifiable_credentials::credential_signer::CredentialSigner;
 use crate::verifiable_credentials::{
     credential_signer::CredentialSignerVerifyError,
     did_vc::DidVcService,
@@ -156,7 +157,7 @@ async fn verify<R: DidRepository>(
     my_keyring: &KeyPairing,
     message: &DidCommMessage,
 ) -> Result<VerifiedContainer, DidCommEncryptedServiceVerifyError<R::FindIdentifierError>> {
-    let other_did = message.find_sendeer()?;
+    let other_did = message.find_sender()?;
     let other_doc = did_repository
         .find_identifier(&other_did)
         .await
