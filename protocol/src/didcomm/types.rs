@@ -1,3 +1,4 @@
+use data_encoding::BASE64URL_NOPAD;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -43,4 +44,23 @@ pub enum FindSenderError {
     Decode(#[from] data_encoding::DecodeError),
     #[error("skid error")]
     Skid,
+}
+
+impl DidCommMessage {
+    pub fn find_sender(&self) -> Result<String, FindSenderError> {
+        let protected = &self.protected;
+
+        let decoded = BASE64URL_NOPAD.decode(protected.as_bytes())?;
+        let decoded = String::from_utf8(decoded)?;
+        let decoded = serde_json::from_str::<serde_json::Value>(&decoded)?;
+
+        let from_did = decoded
+            .get("skid")
+            .ok_or(FindSenderError::Skid)?
+            .as_str()
+            .ok_or(FindSenderError::Skid)?
+            .to_string();
+
+        Ok(from_did)
+    }
 }
