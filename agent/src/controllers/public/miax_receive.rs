@@ -10,7 +10,7 @@ impl MessageReceiveUsecase {
     pub fn new() -> Self {
         let network = crate::network_config();
         let network = network.lock();
-        let project_did = if let Some(v) = network.getproject_did() {
+        let project_did = if let Some(v) = network.get_project_did() {
             v
         } else {
             panic!("Failed to read project_did")

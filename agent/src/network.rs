@@ -76,4 +76,8 @@ impl Network {
 
         Network { config, root }
     }
+
+    pub fn get_project_did(&self) -> Option<String> {
+        self.root.project_did.clone()
+    }
 }
