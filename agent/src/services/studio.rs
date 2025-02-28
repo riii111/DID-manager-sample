@@ -1,8 +1,8 @@
 use crate::config::server_config;
-use crate::miax::utils::did_accessor::{self, DidAccessorImpl};
-use crate::miax::utils::sidetree_client::{self, SideTreeClient};
+use crate::miax::utils::did_accessor::DidAccessorImpl;
+use crate::miax::utils::sidetree_client::SideTreeClient;
 use crate::miax::utils::studio_client::{StudioClient, StudioClientConfig};
-use protocol::did::did_repository::{self, DidRepositoryImpl};
+use protocol::did::did_repository::DidRepositoryImpl;
 use serde::Deserialize;
 
 pub struct Studio {
