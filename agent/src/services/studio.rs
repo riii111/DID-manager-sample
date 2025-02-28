@@ -38,5 +38,11 @@ impl Studio {
             .expect("failed to create sidetree client");
         let did_repository = DidRepositoryImpl::new(sidetree_client);
         let did_accessor = DidAccessorImpl {};
+
+        Studio {
+            http_client: client,
+            did_repository,
+            did_accessor,
+        }
     }
 }
