@@ -1,3 +1,4 @@
+use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
 use chrono::{DateTime, FixedOffset, Utc};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -185,7 +186,7 @@ where
     }
 
     pub fn cleanup(&mut self) -> Result<(), RuntimeError> {
-        self.remove_process_info()
+        self.remove_process_info(self.self_pid)
     }
 }
 
@@ -203,6 +204,62 @@ where
             version: "9.9.9".to_string(),
         };
         Ok(Version::parse(&version_response.version)?)
+    }
+}
+
+impl<H, P> RuntimeManagerWithoutAsync for RuntimeManagerImpl<H, P>
+where
+    H: RuntimeInfoStorage,
+    P: ProcessManager,
+{
+    fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, RuntimeError> {
+        #[cfg(unix)]
+        if is_first {
+            if !is_manage_socket_activation() && self.uds_path.exists() {
+                log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
+                std::fs::remove_file(&self.uds_path);
+            }
+            if self.meta_uds_path.exists() {
+                log::warn!(
+                    "UDS file already exists, removing: {:?}",
+                    self.meta_uds_path
+                );
+                std::fs::remove_file(&self.meta_uds_path);
+            }
+        }
+        let current_exe = &self.get_runtime_info()?.exec_path;
+        let child = self
+            .process_manager
+            .spawn_process(current_exe, &["controlled"])
+            .map_err(|e| RuntimeError::Fork)?;
+
+        #[cfg(unix)]
+        if is_first {
+            let listener = if is_manage_by_systemd() && is_manage_socket_activation() {
+                Some(crate::unix_utils::get_fd_from_systemd()?)
+            } else {
+                None
+            };
+            let () = crate::unix_utils::wait_until_file_created(&self.meta_uds_path)
+                .map_err(RuntimeError::WatchUdsError)?;
+            let stream = loop {
+                match std::os::unix::net::UnixStream::connect(&self.meta_uds_path) {
+                    Ok(stream) => break stream,
+                    Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
+                        // wait for bind
+                        std::thread::sleep(std::time::Duration::from_millis(5));
+                        continue;
+                    }
+                    Err(err) => return Err(RuntimeError::BindUdsError),
+                }
+            };
+            let stream = std::os::unix::io::AsRawFd::as_raw_fd(&stream);
+            crate::unix_utils::send_fd(stream, listener)
+                .map_err(RuntimeError::BindUdsError(e.into()))?;
+        }
+        let process_info = ProcessInfo::new(child, FeatType::Agent);
+        self.add_process_info(process_info.clone())?;
+        Ok(process_info)
     }
 }
 
