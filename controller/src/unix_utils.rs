@@ -4,13 +4,18 @@ use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
 use hyperlocal::{UnixClientExt, UnixConnector, Uri}; // UnixClientExt 拡張トレイト
 use serde::de::DeserializeOwned;
-use std::path::Path;
+use std::env;
+use std::{os::fd::RawFd, path::Path};
 
 pub fn remove_file_if_exists(path: impl AsRef<Path>) {
     if path.as_ref().exists() {
         std::fs::remove_file(path).unwrap();
     }
 }
+
+// NOTE: the LISTEN_FDS is assigned from 3.
+// ref: https://manpages.debian.org/testing/libsystemd-dev/sd_listen_fds.3.en.html
+static DEFAULT_FD: RawFd = 3;
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetFdError {
@@ -22,6 +27,27 @@ pub enum GetFdError {
     ListenPidMismatch { listen_pid: i32, current_pid: i32 },
     #[error("No file descriptors passed by systemd.")]
     NoFileDescriptors,
+}
+
+pub fn get_fd_from_systemd() -> Result<RawFd, GetFdError> {
+    let listen_fds = env::var("LISTEN_FDS")
+        .ok()
+        .and_then(|x| x.parse::<i32>().ok())
+        .ok_or(GetFdError::ListenFdsError)?;
+    let listen_pid = env::var("LISTEN_PID")
+        .ok()
+        .and_then(|x| x.parse::<i32>().ok())
+        .ok_or(GetFdError::ListenPidError)?;
+    let current_pid = std::process::id() as i32;
+    if listen_pid != current_pid {
+        return Err(GetFdError::ListenPidMismatch {
+            listen_pid,
+            current_pid,
+        });
+    } else if listen_fds <= 0 {
+        return Err(GetFdError::NoFileDescriptors);
+    }
+    Ok(DEFAULT_FD)
 }
 
 #[derive(Debug, thiserror::Error)]
