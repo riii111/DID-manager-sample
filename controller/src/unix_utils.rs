@@ -10,6 +10,7 @@ use std::env;
 use std::io::IoSlice;
 use std::{os::fd::RawFd, path::Path};
 
+// fd = file descriptor
 pub fn send_fd(tx: RawFd, fd: Option<RawFd>) -> nix::Result<()> {
     match fd {
         Some(fd) => {

@@ -152,6 +152,11 @@ where
     H: RuntimeInfoStorage,
     P: ProcessManager,
 {
+    fn add_process_info(&mut self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
+        self.file_handler
+            .apply_with_lock(|runtime_info| runtime_info.add_process_info(process_info))
+    }
+
     fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
         self.file_handler
             .apply_with_lock(|runtime_info| runtime_info.remove_process_info(process_id))
@@ -250,7 +255,7 @@ where
                         std::thread::sleep(std::time::Duration::from_millis(5));
                         continue;
                     }
-                    Err(err) => return Err(RuntimeError::BindUdsError),
+                    Err(err) => return Err(RuntimeError::BindUdsError(err)),
                 }
             };
             let stream = std::os::unix::io::AsRawFd::as_raw_fd(&stream);
@@ -263,7 +268,32 @@ where
     }
 }
 
+impl ProcessInfo {
+    pub fn new(process_id: u32, feat_type: FeatType) -> Self {
+        let now = Utc::now().with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap());
+        let version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        ProcessInfo {
+            process_id,
+            executed_at: now,
+            version,
+            feat_type,
+        }
+    }
+}
 impl RuntimeInfo {
+    pub fn add_process_info(&mut self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
+        for info in self.process_infos.iter_mut() {
+            if info.is_none() {
+                *info = Some(process_info);
+                return Ok(());
+            }
+        }
+        Err(RuntimeError::FileWrite(std::io::Error::new(
+            std::io::ErrorKind::StorageFull,
+            "Failed to add process_info",
+        )))
+    }
+
     pub fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
         let pid = process_id;
         let mut i = None;
