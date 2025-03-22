@@ -1,7 +1,22 @@
 use std::time::Duration;
 
-use crate::services::{miax::MiaX, studio::Studio};
+use crate::{
+    miax::utils::did_accessor::{DidAccessor, DidAccessorImpl},
+    services::{
+        miax::MiaX,
+        studio::{MessageResponse, Studio},
+    },
+};
+use anyhow::anyhow;
+use protocol::didcomm::encrypted::DidCommEncryptedService;
+use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
+
+#[derive(Deserialize)]
+enum OperationType {
+    UpdateAgent,
+    UpdateNetworkJson,
+}
 
 struct MessageReceiveUsecase {
     studio: Studio,
@@ -27,8 +42,81 @@ impl MessageReceiveUsecase {
         }
     }
 
+    async fn handle_invalid_json(
+        &self,
+        m: &MessageResponse,
+        e: serde_json::Error,
+    ) -> Result<(), anyhow::Error> {
+        self.studio
+            .ack_message(&self.project_did, m.id.clone(), false)
+            .await?;
+        Err(anyhow::anyhow!("Invalid Json: {:?}", e))
+    }
+
     pub async fn receive_message(&self) -> anyhow::Result<()> {
-        unimplemented!("receive message")
+        for m in self.studio.get_message(&self.project_did).await? {
+            let json_message = match serde_json::from_str(&m.raw_message) {
+                Ok(msg) => msg,
+                Err(e) => return self.handle_invalid_json(&m, e).await,
+            };
+            log::info!("Receive message, message_id = {:?}", m.id);
+            match DidCommEncryptedService::verify(
+                self.agent.did_repository(),
+                &DidAccessorImpl {}.get_my_keyring(),
+                &json_message,
+            )
+            .await
+            {
+                Ok(verified) => {
+                    log::info!(
+                        "Verify success. message_id = {}, from = {}",
+                        m.id,
+                        verified.message.issuer.id
+                    );
+                    self.studio
+                        .ack_message(&self.project_did, m.id, true)
+                        .await?;
+                    if verified.message.issuer.id == self.project_did {
+                        let container = verified.message.credential_subject.container;
+                        let operation_type = container["operation"].clone();
+                        match serde_json::from_value::<OperationType>(operation_type) {
+                            Ok(OperationType::UpdateAgent) => {
+                                let binary_url = container["binary_url"]
+                                    .as_str()
+                                    .ok_or(anyhow!("the container doesn't have binary_url"))?;
+                                if !can_connect_to_download_server("https://github.com").await {
+                                    log::error!("Not connected to be Internet");
+                                } else if !binary_url.starts_with(
+                                    "https://github.com/nodecross/nodex/releases/download/",
+                                ) {
+                                    log::error!("Invalid url");
+                                    anyhow::bail!("Invalid url");
+                                }
+                                self.agent.update_version(binary_url).await?;
+                            }
+                            Ok(OperationType::UpdateNetworkJson) => {
+                                self.studio.network().await?;
+                            }
+                            Err(e) => {
+                                log::error!("Json Parse Error: {:?}", e);
+                            }
+                        }
+                        continue;
+                    } else {
+                        log::error!("Not supported")
+                    }
+                }
+                Err(_) => {
+                    log::error!("Verify failed : message_id = {}", m.id);
+                    self.studio
+                        .ack_message(&self.project_did, m.id, false)
+                        .await?;
+                    continue;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

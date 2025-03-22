@@ -76,3 +76,24 @@ pub struct VerifiableCredentials {
     #[serde(rename = "proof", skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proof>, // 署名情報。署名アルゴリズム、署名値、署名検証方法などの情報（jws, verification_methodなど）をもつ
 }
+
+impl VerifiableCredentials {
+    pub fn new(from_did: String, message: Value, issuance_date: DateTime<Utc>) -> Self {
+        let r#type = "VerifiableCredential".to_string();
+        let context = "https://www.w3.org/2018/credentials/v1".to_string();
+
+        VerifiableCredentials {
+            id: None,
+            issuer: Issuer { id: from_did },
+            r#type: vec![r#type],
+            contest: vec![context],
+            issuance_date,
+            credential_subject: CredentialSubject {
+                id: None,
+                container: message,
+            },
+            expiration_date: None,
+            proof: None,
+        }
+    }
+}
