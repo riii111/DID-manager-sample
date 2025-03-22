@@ -1,12 +1,38 @@
+use chrono::{DateTime, FixedOffset, Utc};
 use semver::Version;
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+use std::{
+    os::unix::process,
+    path::{Path, PathBuf},
+};
 use tokio::sync::watch;
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub struct RuntimeInfo {
+    pub state: State,
+    pub process_infos: [Option<ProcessInfo>; 4],
+    pub exec_path: PathBuf,
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 pub enum State {
     Idle,
     Update,
     Rollback,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub struct ProcessInfo {
+    pub process_id: u32,
+    pub executed_at: DateTime<FixedOffset>,
+    pub version: Version,
+    pub feat_type: FeatType,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub enum FeatType {
+    Agent,
+    Controller,
 }
 
 pub enum MiaxSignal {
@@ -82,6 +108,25 @@ struct VersionResponse {
     pub version: String,
 }
 
+pub trait RuntimeManagerWithoutAsync {
+    fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, RuntimeError>;
+
+    fn launch_controller(
+        &mut self,
+        new_controller_path: impl AsRef<Path>,
+    ) -> Result<(), RuntimeError>;
+
+    fn get_runtime_info(&mut self) -> Result<RuntimeInfo, RuntimeError>;
+
+    fn update_state_without_send(&mut self, state: State) -> Result<(), RuntimeError>;
+
+    fn update_state(&mut self, state: State) -> Result<(), RuntimeError>;
+
+    fn kill_process(&mut self, process_info: &ProcessInfo) -> Result<(), RuntimeError>;
+
+    fn kill_other_agents(&mut self, target: u32) -> Result<(), RuntimeError>;
+}
+
 #[trait_variant::make(Send)]
 pub trait RuntimeManager: RuntimeManagerWithoutAsync {
     async fn get_version(&self) -> Result<Version, RuntimeError>;
@@ -100,8 +145,52 @@ where
     meta_uds_path: PathBuf,
     state_sender: watch::Sender<State>,
 }
+
+impl<H, P> RuntimeManagerImpl<H, P>
+where
+    H: RuntimeInfoStorage,
+    P: ProcessManager,
+{
+    fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
+        self.file_handler
+            .apply_with_lock(|runtime_info| runtime_info.remove_process_info(process_id))
+    }
+
+    pub fn cleanup_all(&mut self) -> Result<(), RuntimeError> {
+        #[cfg(unix)]
+        {
+            crate::unix_utils::remove_file_if_exists(&self.uds_path);
+            crate::unix_utils::remove_file_if_exists(&self.meta_uds_path);
+        }
+        let process_manager = &self.process_manager;
+        self.file_handler.apply_with_lock(move |runtime_info| {
+            let mut errs = vec![];
+            for info in runtime_info.process_infos.iter_mut() {
+                if let Some(info) = info {
+                    if let Err(err) =
+                        process_manager.kill_process(info.process_id, MiaxSignal::Terminate)
+                    {
+                        errs.push(RuntimeError::Kill(err));
+                    }
+                }
+                *info = None;
+            }
+            runtime_info.state = State::Idle;
+            if !errs.is_empty() {
+                return Err(RuntimeError::Kills(errs));
+            } else {
+                Err(RuntimeError::Kills(errs))
+            }
+        })
+    }
+
+    pub fn cleanup(&mut self) -> Result<(), RuntimeError> {
+        self.remove_process_info()
+    }
+}
+
 impl<H, P> RuntimeManager for RuntimeManagerImpl<H, P>
-where 
+where
     H: RuntimeInfoStorage + Sync + Send,
     P: ProcessManager + Sync + Send,
 {
@@ -114,5 +203,31 @@ where
             version: "9.9.9".to_string(),
         };
         Ok(Version::parse(&version_response.version)?)
+    }
+}
+
+impl RuntimeInfo {
+    pub fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
+        let pid = process_id;
+        let mut i = None;
+        for (j, info) in self.process_infos.iter_mut().enumerate() {
+            match info.as_ref() {
+                Some(ProcessInfo { process_id, .. }) if pid == *process_id => {
+                    *info = None;
+                    i = Some(j);
+                    break;
+                }
+                _ => continue,
+            }
+        }
+        if let Some(i) = i {
+            self.process_infos[i..].rotate_left(1);
+            Ok(())
+        } else {
+            Err(RuntimeError::FileWrite(std::io::Error::new(
+                std::io::ErrorKind::StorageFull,
+                "Failed to remove process_info",
+            )))
+        }
     }
 }

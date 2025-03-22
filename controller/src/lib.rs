@@ -3,10 +3,18 @@ use crate::managers::runtime::{ProcessManager, RuntimeInfoStorage, RuntimeManage
 use crate::state::handler::handle_state;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+#[cfg(unix)]
+type ProcessManagerImpl = crate::managers::unix_process_manager::UnixProcessManager;
+
+#[cfg(windows)]
+type ProcessManagerImpl = crate::managers::windows_process_manager::WindowsProcessManager;
 
 mod config;
 pub mod managers;
 pub mod state;
+
+#[cfg(unix)]
+pub mod unix_utils;
 pub mod validator;
 
 #[tokio::main]
@@ -59,5 +67,43 @@ where
     H: RuntimeInfoStorage + Send + Sync + 'static,
     P: ProcessManager + Send + Sync + 'static,
 {
-    unimplemented()
+    use tokio::signal::unix::{signal, SignalKind};
+
+    let ctrl_c = tokio::signal::ctrl_c();
+    let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
+    let mut sigabrt = signal(SignalKind::user_defined1()).expect("Failed to bind to SIGABRT");
+    let mut sigint = signal(SignalKind::quit()).expect("Failed to bind to SIGINT");
+
+    tokio::select! {
+        _ = sigint.recv() => {
+            if let Err(e) = runtime_manager.lock().await.cleanup_all() {
+                log::error!("Failed to handle sigint: {}", e);
+            }
+        },
+        _ = ctrl_c => {
+            if let Err(e) = runtime_manager.lock().await.cleanup_all() {
+                log::error!("Failed to handle CTRL+C: {}", e);
+            }
+        },
+        _ = sigterm.recv() => {
+            log::info!("Received SIGTERM. Gracefully stopping application.");
+            // Just to be sure
+            let _ = runtime_manager.lock().await.cleanup();
+        }
+        _ = sigabrt.recv() => {
+            if let Err(e) = runtime_manager.lock().await.cleanup_all() {
+                log::error!("Failed to handle SIGABRT: {}", e);
+            }
+        }
+    }
+    log::info!("All processes have been successfully terminated.");
+}
+
+#[cfg(windows)]
+pub async fn handle_signals<H, P>(runtime_manager: Arc<Mutex<RuntimeManagerImpl<H, P>>>)
+where
+    H: RuntimeInfoStorage + Send + Sync + 'static,
+    P: ProcessManager + Send + Sync + 'static,
+{
+    unimplemented!("implemented for Windows.");
 }
