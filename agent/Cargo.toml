@@ -23,7 +23,7 @@ log = { workspace = true }
 url = { workspace = true }
 reqwest = { workspace = true }
 x25519-dalek = { workspace = true }
-
+tokio-util = "0.7.13"
 axum = { version = "0.7.9", features = ["macros"] }
 tokio = { version = "1.0", features = ["full"] }
 tower = { version = "0.4", features = ["util"] }
