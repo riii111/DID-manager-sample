@@ -2,10 +2,35 @@ use bytes::Bytes;
 use http_body_util::{BodyExt, Full}; // BodyExt 拡張トレイト
 use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
-use hyperlocal::{UnixClientExt, UnixConnector, Uri}; // UnixClientExt 拡張トレイト
+use hyperlocal::{UnixClientExt, UnixConnector, Uri};
+use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
+// UnixClientExt 拡張トレイト
 use serde::de::DeserializeOwned;
 use std::env;
+use std::io::IoSlice;
 use std::{os::fd::RawFd, path::Path};
+
+pub fn send_fd(tx: RawFd, fd: Option<RawFd>) -> nix::Result<()> {
+    match fd {
+        Some(fd) => {
+            let iov = [IoSlice::new(&[0u8; 1])];
+            let fds = [fd];
+            let cmsg = ControlMessage::ScmRights(&fds);
+            sendmsg::<()>(tx, &iov, &[cmsg], MsgFlags::empty(), None)?;
+        }
+        None => {
+            let iov = [IoSlice::new(&[1u8; 1])];
+            let fds = [];
+            let cmsg = ControlMessage::ScmRights(&fds);
+            sendmsg::<()>(tx, &iov, &[cmsg], MsgFlags::empty(), None)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn wait_until_file_created(path: impl AsRef<Path>) -> notify::Result<()> {
+    unimplemented!()
+}
 
 pub fn remove_file_if_exists(path: impl AsRef<Path>) {
     if path.as_ref().exists() {

@@ -255,7 +255,7 @@ where
             };
             let stream = std::os::unix::io::AsRawFd::as_raw_fd(&stream);
             crate::unix_utils::send_fd(stream, listener)
-                .map_err(RuntimeError::BindUdsError(e.into()))?;
+                .map_err(|e| RuntimeError::BindUdsError(e.into()))?;
         }
         let process_info = ProcessInfo::new(child, FeatType::Agent);
         self.add_process_info(process_info.clone())?;
