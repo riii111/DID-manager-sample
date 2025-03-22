@@ -20,3 +20,8 @@ rand_core = { workspace = true }
 x25519-dalek = { workspace = true }
 data-encoding = { workspace = true }
 sha2 = { workspace = true }
+chrono = { workspace = true }
+didcomm-rs = { git = "https://github.com/nodecross/didcomm-rs.git", tag = "v0.8.1", default-features = false, features = [
+    "raw-crypto",
+] }
+cuid = {workspace = true}
