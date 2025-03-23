@@ -5,8 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::{
     os::unix::process,
     path::{Path, PathBuf},
+    process,
 };
-use tokio::sync::watch;
+use tokio::{runtime::Runtime, sync::watch};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RuntimeInfo {
@@ -152,6 +153,40 @@ where
     H: RuntimeInfoStorage,
     P: ProcessManager,
 {
+    pub fn new_by_controller(
+        mut file_handler: H,
+        process_manager: P,
+        uds_path: impl AsRef<Path>,
+    ) -> Result<(Self, watch::Receiver<State>), RuntimeError> {
+        let (state_sender, state_receiver) = watch::channel(file_handler.read()?.state);
+        #[cfg(unix)]
+        let meta_uds_path = crate::unix_utils::convention_meta_uds_path(&uds_path)
+            .map_err(|_| RuntimeError::PathConvention)?;
+        #[cfg(windows)]
+        let meta_uds_path = PathBuf::from("");
+        let self_pid = std::process::id();
+        let mut runtime_manager = RuntimeManagerImpl {
+            self_pid,
+            file_handler,
+            state_sender,
+            process_manager,
+            uds_path: uds_path.as_ref().into(),
+            meta_uds_path,
+        };
+        runtime_manager.cleanup_process_info()?;
+        let runtime_info = runtime_manager.file_handler.read();
+        let controller_processes: Vec<_> = runtime_info
+            .filter_by_feat(FeatType::Controller)
+            .filter(|process_info| process_info.process_id != self_pid)
+            .collect();
+        if !controller_processes.is_empty() {
+            return Err(RuntimeError::AlreadyExistController);
+        }
+        let self_info = ProcessInfo::new(self_pid, FeatType::Controller);
+        runtime_manager.add_process_info(self_info)?;
+        Ok((runtime_manager, state_receiver))
+    }
+
     fn add_process_info(&mut self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
         self.file_handler
             .apply_with_lock(|runtime_info| runtime_info.add_process_info(process_info))
@@ -192,6 +227,49 @@ where
 
     pub fn cleanup(&mut self) -> Result<(), RuntimeError> {
         self.remove_process_info(self.self_pid)
+    }
+
+    fn cleanup_process_info(&mut self) -> Result<(), RuntimeError> {
+        let process_manager = &self.process_manager;
+        self.file_handler.apply_with_lock(|runtime_info| {
+            for process_info in runtime_info.process_infos.iter_mut() {
+                if let Some(ref p) = process_info {
+                    if !process_manager.is_running(p.process_id) {
+                        *process_info = None;
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
+    fn kill_others(
+        &mut self,
+        target: u32,
+        feat_type: Option<FeatType>,
+    ) -> Result<(), RuntimeError> {
+        let (_oks, errs): (Vec<_>, Vec<_>) = self
+            .file_handler
+            .read()?
+            .process_infos
+            .into_iter()
+            .flatten()
+            .filter(|process_info| process_info.process_id != target)
+            .filter(|p| {
+                feat_type
+                    .as_ref()
+                    .map(|f| p.feat_type == *f)
+                    .unwrap_or(true)
+            })
+            .map(move |process_info| self.kill_process(&process_info))
+            .partition(Result::is_ok);
+        if errs.is_empty() {
+            Ok(())
+        } else {
+            Err(RuntimeError::Kills(
+                errs.into_iter().map(Result::unwrap_err).collect(),
+            ))
+        }
     }
 }
 
@@ -236,7 +314,7 @@ where
         let child = self
             .process_manager
             .spawn_process(current_exe, &["controlled"])
-            .map_err(|e| RuntimeError::Fork)?;
+            .map_err(RuntimeError::Fork)?;
 
         #[cfg(unix)]
         if is_first {
@@ -265,6 +343,56 @@ where
         let process_info = ProcessInfo::new(child, FeatType::Agent);
         self.add_process_info(process_info.clone())?;
         Ok(process_info)
+    }
+
+    fn get_runtime_info(&mut self) -> Result<RuntimeInfo, RuntimeError> {
+        self.file_handler.read()
+    }
+
+    fn kill_process(&mut self, process_info: &ProcessInfo) -> Result<(), RuntimeError> {
+        let signal = if process_info.feat_type == FeatType::Agent {
+            MiaxSignal::SendFd
+        } else {
+            MiaxSignal::Terminate
+        };
+        self.process_manager
+            .kill_process(process_info.process_id, signal)
+            .map_err(RuntimeError::Kill)?;
+        self.remove_process_info(process_info.process_id)?;
+        Ok(())
+    }
+
+    fn update_state_without_send(&mut self, state: State) -> Result<(), RuntimeError> {
+        self.file_handler.apply_with_lock(|runtime_info| {
+            runtime_info.state = state;
+            Ok(())
+        })
+    }
+
+    fn update_state(&mut self, state: State) -> Result<(), RuntimeError> {
+        self.update_state_without_send(state)?;
+        let _ = self.state_sender.send(state);
+        Ok(())
+    }
+
+    fn kill_other_agents(&mut self, target: u32) -> Result<(), RuntimeError> {
+        self.kill_others(target, Some(FeatType::Agent))
+    }
+
+    fn launch_controller(
+        &mut self,
+        new_controller_path: impl AsRef<Path>,
+    ) -> Result<(), RuntimeError> {
+        self.kill_others(self.self_pid, None)?;
+        if is_manage_by_systemd() {
+            return Ok(());
+        }
+        let child = self
+            .process_manager
+            .spawn_process(new_controller_path, &["controller"])
+            .map_err(RuntimeError::Fork)?;
+        log::info!("Parent process launched child with PID: {}", child);
+        Ok(())
     }
 }
 
@@ -316,5 +444,19 @@ impl RuntimeInfo {
                 "Failed to remove process_info",
             )))
         }
+    }
+
+    pub fn find_process_info(&self, process_id: u32) -> Option<&ProcessInfo> {
+        self.process_infos
+            .iter()
+            .flatten()
+            .find(|p| p.process_id == process_id)
+    }
+
+    pub fn filter_by_feat(&self, feat_type: FeatType) -> impl Iterator<Item = &ProcessInfo> {
+        self.process_infos
+            .iter()
+            .flatten()
+            .filter(move |process_info| process_info.feat_type == feat_type)
     }
 }

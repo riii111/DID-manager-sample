@@ -8,7 +8,24 @@ use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
 use serde::de::DeserializeOwned;
 use std::env;
 use std::io::IoSlice;
-use std::{os::fd::RawFd, path::Path};
+use std::os::fd::RawFd;
+use std::path::{Path, PathBuf};
+
+pub fn convention_meta_uds_path(uds: impl AsRef<Path>) -> std::io::Result<PathBuf> {
+    let parent = uds.as_ref().parent().ok_or(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "Failed to get path of unix domain socket",
+    ))?;
+    let base_name =
+        uds.as_ref()
+            .file_name()
+            .and_then(|s| s.to_str())
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Failed to get path of unix domain socket",
+            ))?;
+    Ok(parent.join(format!("meta_{}", base_name)))
+}
 
 // fd = file descriptor
 pub fn send_fd(tx: RawFd, fd: Option<RawFd>) -> nix::Result<()> {
