@@ -459,4 +459,13 @@ impl RuntimeInfo {
             .flatten()
             .filter(move |process_info| process_info.feat_type == feat_type)
     }
+
+    pub fn is_agent_running(&self) -> bool {
+        let is_not_empty = self
+            .filter_by_feat(FeatType::Agent)
+            .peekable()
+            .peek()
+            .is_some();
+        is_not_empty
+    }
 }
