@@ -2,12 +2,8 @@ use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activatio
 use chrono::{DateTime, FixedOffset, Utc};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::{
-    os::unix::process,
-    path::{Path, PathBuf},
-    process,
-};
-use tokio::{runtime::Runtime, sync::watch};
+use std::path::{Path, PathBuf};
+use tokio::sync::watch;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RuntimeInfo {
@@ -148,131 +144,6 @@ where
     state_sender: watch::Sender<State>,
 }
 
-impl<H, P> RuntimeManagerImpl<H, P>
-where
-    H: RuntimeInfoStorage,
-    P: ProcessManager,
-{
-    pub fn new_by_controller(
-        mut file_handler: H,
-        process_manager: P,
-        uds_path: impl AsRef<Path>,
-    ) -> Result<(Self, watch::Receiver<State>), RuntimeError> {
-        let (state_sender, state_receiver) = watch::channel(file_handler.read()?.state);
-        #[cfg(unix)]
-        let meta_uds_path = crate::unix_utils::convention_meta_uds_path(&uds_path)
-            .map_err(|_| RuntimeError::PathConvention)?;
-        #[cfg(windows)]
-        let meta_uds_path = PathBuf::from("");
-        let self_pid = std::process::id();
-        let mut runtime_manager = RuntimeManagerImpl {
-            self_pid,
-            file_handler,
-            state_sender,
-            process_manager,
-            uds_path: uds_path.as_ref().into(),
-            meta_uds_path,
-        };
-        runtime_manager.cleanup_process_info()?;
-        let runtime_info = runtime_manager.file_handler.read();
-        let controller_processes: Vec<_> = runtime_info
-            .filter_by_feat(FeatType::Controller)
-            .filter(|process_info| process_info.process_id != self_pid)
-            .collect();
-        if !controller_processes.is_empty() {
-            return Err(RuntimeError::AlreadyExistController);
-        }
-        let self_info = ProcessInfo::new(self_pid, FeatType::Controller);
-        runtime_manager.add_process_info(self_info)?;
-        Ok((runtime_manager, state_receiver))
-    }
-
-    fn add_process_info(&mut self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
-        self.file_handler
-            .apply_with_lock(|runtime_info| runtime_info.add_process_info(process_info))
-    }
-
-    fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
-        self.file_handler
-            .apply_with_lock(|runtime_info| runtime_info.remove_process_info(process_id))
-    }
-
-    pub fn cleanup_all(&mut self) -> Result<(), RuntimeError> {
-        #[cfg(unix)]
-        {
-            crate::unix_utils::remove_file_if_exists(&self.uds_path);
-            crate::unix_utils::remove_file_if_exists(&self.meta_uds_path);
-        }
-        let process_manager = &self.process_manager;
-        self.file_handler.apply_with_lock(move |runtime_info| {
-            let mut errs = vec![];
-            for info in runtime_info.process_infos.iter_mut() {
-                if let Some(info) = info {
-                    if let Err(err) =
-                        process_manager.kill_process(info.process_id, MiaxSignal::Terminate)
-                    {
-                        errs.push(RuntimeError::Kill(err));
-                    }
-                }
-                *info = None;
-            }
-            runtime_info.state = State::Idle;
-            if !errs.is_empty() {
-                return Err(RuntimeError::Kills(errs));
-            } else {
-                Err(RuntimeError::Kills(errs))
-            }
-        })
-    }
-
-    pub fn cleanup(&mut self) -> Result<(), RuntimeError> {
-        self.remove_process_info(self.self_pid)
-    }
-
-    fn cleanup_process_info(&mut self) -> Result<(), RuntimeError> {
-        let process_manager = &self.process_manager;
-        self.file_handler.apply_with_lock(|runtime_info| {
-            for process_info in runtime_info.process_infos.iter_mut() {
-                if let Some(ref p) = process_info {
-                    if !process_manager.is_running(p.process_id) {
-                        *process_info = None;
-                    }
-                }
-            }
-            Ok(())
-        })
-    }
-
-    fn kill_others(
-        &mut self,
-        target: u32,
-        feat_type: Option<FeatType>,
-    ) -> Result<(), RuntimeError> {
-        let (_oks, errs): (Vec<_>, Vec<_>) = self
-            .file_handler
-            .read()?
-            .process_infos
-            .into_iter()
-            .flatten()
-            .filter(|process_info| process_info.process_id != target)
-            .filter(|p| {
-                feat_type
-                    .as_ref()
-                    .map(|f| p.feat_type == *f)
-                    .unwrap_or(true)
-            })
-            .map(move |process_info| self.kill_process(&process_info))
-            .partition(Result::is_ok);
-        if errs.is_empty() {
-            Ok(())
-        } else {
-            Err(RuntimeError::Kills(
-                errs.into_iter().map(Result::unwrap_err).collect(),
-            ))
-        }
-    }
-}
-
 impl<H, P> RuntimeManager for RuntimeManagerImpl<H, P>
 where
     H: RuntimeInfoStorage + Sync + Send,
@@ -396,6 +267,131 @@ where
     }
 }
 
+impl<H, P> RuntimeManagerImpl<H, P>
+where
+    H: RuntimeInfoStorage,
+    P: ProcessManager,
+{
+    pub fn new_by_controller(
+        mut file_handler: H,
+        process_manager: P,
+        uds_path: impl AsRef<Path>,
+    ) -> Result<(Self, watch::Receiver<State>), RuntimeError> {
+        let (state_sender, state_receiver) = watch::channel(file_handler.read()?.state);
+        #[cfg(unix)]
+        let meta_uds_path = crate::unix_utils::convention_meta_uds_path(&uds_path)
+            .map_err(|_| RuntimeError::PathConvention)?;
+        #[cfg(windows)]
+        let meta_uds_path = PathBuf::from("");
+        let self_pid = std::process::id();
+        let mut runtime_manager = RuntimeManagerImpl {
+            self_pid,
+            file_handler,
+            state_sender,
+            process_manager,
+            uds_path: uds_path.as_ref().into(),
+            meta_uds_path,
+        };
+        runtime_manager.cleanup_process_info()?;
+        let runtime_info = runtime_manager.file_handler.read()?;
+        let controller_processes: Vec<_> = runtime_info
+            .filter_by_feat(FeatType::Controller)
+            .filter(|process_info| process_info.process_id != self_pid)
+            .collect();
+        if !controller_processes.is_empty() {
+            return Err(RuntimeError::AlreadyExistController);
+        }
+        let self_info = ProcessInfo::new(self_pid, FeatType::Controller);
+        runtime_manager.add_process_info(self_info)?;
+        Ok((runtime_manager, state_receiver))
+    }
+
+    fn add_process_info(&mut self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
+        self.file_handler
+            .apply_with_lock(|runtime_info| runtime_info.add_process_info(process_info))
+    }
+
+    fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
+        self.file_handler
+            .apply_with_lock(|runtime_info| runtime_info.remove_process_info(process_id))
+    }
+
+    pub fn cleanup_all(&mut self) -> Result<(), RuntimeError> {
+        #[cfg(unix)]
+        {
+            crate::unix_utils::remove_file_if_exists(&self.uds_path);
+            crate::unix_utils::remove_file_if_exists(&self.meta_uds_path);
+        }
+        let process_manager = &self.process_manager;
+        self.file_handler.apply_with_lock(move |runtime_info| {
+            let mut errs = vec![];
+            for info in runtime_info.process_infos.iter_mut() {
+                if let Some(info) = info {
+                    if let Err(err) =
+                        process_manager.kill_process(info.process_id, MiaxSignal::Terminate)
+                    {
+                        errs.push(RuntimeError::Kill(err));
+                    }
+                }
+                *info = None;
+            }
+            runtime_info.state = State::Idle;
+            if !errs.is_empty() {
+                return Err(RuntimeError::Kills(errs));
+            } else {
+                Err(RuntimeError::Kills(errs))
+            }
+        })
+    }
+
+    pub fn cleanup(&mut self) -> Result<(), RuntimeError> {
+        self.remove_process_info(self.self_pid)
+    }
+
+    fn cleanup_process_info(&mut self) -> Result<(), RuntimeError> {
+        let process_manager = &self.process_manager;
+        self.file_handler.apply_with_lock(|runtime_info| {
+            for process_info in runtime_info.process_infos.iter_mut() {
+                if let Some(ref p) = process_info {
+                    if !process_manager.is_running(p.process_id) {
+                        *process_info = None;
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
+    fn kill_others(
+        &mut self,
+        target: u32,
+        feat_type: Option<FeatType>,
+    ) -> Result<(), RuntimeError> {
+        let (_oks, errs): (Vec<_>, Vec<_>) = self
+            .file_handler
+            .read()?
+            .process_infos
+            .into_iter()
+            .flatten()
+            .filter(|process_info| process_info.process_id != target)
+            .filter(|p| {
+                feat_type
+                    .as_ref()
+                    .map(|f| p.feat_type == *f)
+                    .unwrap_or(true)
+            })
+            .map(move |process_info| self.kill_process(&process_info))
+            .partition(Result::is_ok);
+        if errs.is_empty() {
+            Ok(())
+        } else {
+            Err(RuntimeError::Kills(
+                errs.into_iter().map(Result::unwrap_err).collect(),
+            ))
+        }
+    }
+}
+
 impl ProcessInfo {
     pub fn new(process_id: u32, feat_type: FeatType) -> Self {
         let now = Utc::now().with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap());
@@ -408,6 +404,7 @@ impl ProcessInfo {
         }
     }
 }
+
 impl RuntimeInfo {
     pub fn add_process_info(&mut self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
         for info in self.process_infos.iter_mut() {
@@ -453,6 +450,7 @@ impl RuntimeInfo {
             .find(|p| p.process_id == process_id)
     }
 
+    // impl Iterator: Iteratorトレイトを実装する何らかの型を返す。ネスト・ジェネリクスなどにより複雑な型表現になってしまうような場合にこういう抽象的な表現にしてた記憶
     pub fn filter_by_feat(&self, feat_type: FeatType) -> impl Iterator<Item = &ProcessInfo> {
         self.process_infos
             .iter()

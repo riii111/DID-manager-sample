@@ -4,11 +4,12 @@ use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
 use hyperlocal::{UnixClientExt, UnixConnector, Uri};
 use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
-// UnixClientExt 拡張トレイト
 use serde::de::DeserializeOwned;
 use std::env;
+use std::fs::set_permissions;
 use std::io::IoSlice;
 use std::os::fd::RawFd;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 pub fn convention_meta_uds_path(uds: impl AsRef<Path>) -> std::io::Result<PathBuf> {
@@ -125,4 +126,10 @@ where
     let uri = Uri::new(uds_path, endpoint).into();
     let response: Response<Incoming> = client.get(uri).await?;
     parse_response_body(response).await
+}
+
+pub fn change_to_executable(path: &Path) -> std::io::Result<()> {
+    let mut perms = std::fs::metadata(path)?.permissions();
+    perms.set_mode(perms.mode() | 0o111);
+    set_permissions(path, perms)
 }
