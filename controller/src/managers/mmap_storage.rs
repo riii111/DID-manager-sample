@@ -4,7 +4,6 @@ use nix::sys::mman::{mmap, shm_open, MapFlags, ProtFlags};
 use nix::sys::stat::Mode;
 use nix::unistd::ftruncate;
 use std::path::{Path, PathBuf};
-use tokio::runtime::Runtime;
 
 use super::runtime::RuntimeError;
 
