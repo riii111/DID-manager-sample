@@ -1,13 +1,16 @@
 use super::did_accessor::{DidAccessor, DidAccessorImpl};
 use crate::miax::utils::sidetree_client::SideTreeClient;
 use crate::server_config;
-use axum::http::{HeaderMap, HeaderValue};
 use chrono::Utc;
 use protocol::did::did_repository::DidRepositoryImpl;
 use protocol::didcomm::encrypted::{DidCommEncryptedService, DidCommServiceWithAttachment};
 use protocol::verifiable_credentials::types::VerifiableCredentials;
-use reqwest::Url;
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    Url,
+};
 use serde_json::json;
+
 pub struct StudioClientConfig {
     pub base_url: String,
 }
@@ -24,7 +27,7 @@ impl StudioClient {
         let url = Url::parse(&_config.base_url.to_string())?;
         let client = reqwest::Client::new();
         let server_config = server_config();
-        let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint());
+        let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint())?;
         let did_repository = DidRepositoryImpl::new(sidetree_client);
         let didcomm_service =
             DidCommServiceWithAttachment::new(did_repository, server_config.did_attachment_link());
