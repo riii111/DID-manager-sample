@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
+use glob::glob;
 use std::path::{Path, PathBuf};
 use std::{
     fs::{self, File},
@@ -94,6 +95,20 @@ pub trait ResourceManagerTrait: Send + Sync {
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
         let config = get_config().lock().unwrap();
         Ok(vec![self.agent_path().clone(), config.config_dir.clone()])
+    }
+
+    fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
+        let pattern = self
+            .tmp_path()
+            .join("bundles")
+            .join("*.yml")
+            .to_string_lossy()
+            .into_owned();
+
+        match glob(&pattern) {
+            Ok(paths) => paths.filter_map(Result::ok).collect(),
+            Err(_) => Vec::new(),
+        }
     }
 
     fn get_latest_backup(&self) -> Option<PathBuf> {

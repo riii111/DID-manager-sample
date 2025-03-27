@@ -306,6 +306,20 @@ where
         Ok((runtime_manager, state_receiver))
     }
 
+    pub fn new_by_agent(file_handler: H, process_manager: P) -> Self {
+        // We assume that caller is agent.
+        // dummy channel
+        let (state_sender, _) = watch::channel(State::Idle);
+        RuntimeManagerImpl {
+            self_pid: std::process::id(),
+            file_handler,
+            state_sender,
+            process_manager,
+            uds_path: "".into(),
+            meta_uds_path: "".into(),
+        }
+    }
+
     fn add_process_info(&mut self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
         self.file_handler
             .apply_with_lock(|runtime_info| runtime_info.add_process_info(process_info))

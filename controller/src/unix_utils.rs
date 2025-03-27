@@ -4,6 +4,8 @@ use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
 use hyperlocal::{UnixClientExt, UnixConnector, Uri};
 use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
+use notify::event::{AccessKind, AccessMode, CreateKind, MetadataKind, ModifyKind};
+use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::de::DeserializeOwned;
 use std::env;
 use std::fs::set_permissions;
@@ -48,7 +50,40 @@ pub fn send_fd(tx: RawFd, fd: Option<RawFd>) -> nix::Result<()> {
 }
 
 pub fn wait_until_file_created(path: impl AsRef<Path>) -> notify::Result<()> {
-    unimplemented!()
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+    let dir = path
+        .as_ref()
+        .parent()
+        .ok_or(notify::Error::io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Failed to get parent of watching path",
+        )))?;
+    watcher.watch(dir.as_ref(), RecursiveMode::NonRecursive)?;
+    let path = path.as_ref().to_path_buf();
+    if !path.exists() {
+        for res in rx {
+            match res? {
+                Event {
+                    kind: EventKind::Modify(ModifyKind::Metadata(MetadataKind::Ownership)),
+                    paths,
+                    ..
+                }
+                | Event {
+                    kind: EventKind::Access(AccessKind::Close(AccessMode::Write)),
+                    paths,
+                    ..
+                }
+                | Event {
+                    kind: EventKind::Create(CreateKind::File),
+                    paths,
+                    ..
+                } if paths.contains(&path) => return Ok(()),
+                _ => continue,
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn remove_file_if_exists(path: impl AsRef<Path>) {
