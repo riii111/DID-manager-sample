@@ -8,6 +8,7 @@ use crate::{
     },
 };
 use anyhow::anyhow;
+use controller::validator::network::can_connect_to_download_server;
 use protocol::didcomm::encrypted::DidCommEncryptedService;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;

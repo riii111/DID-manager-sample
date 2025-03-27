@@ -72,6 +72,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap",
+ "controller",
  "dotenvy",
  "futures",
  "home-config",

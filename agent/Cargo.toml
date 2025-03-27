@@ -6,6 +6,7 @@ authors.workspace = true
 description.workspace = true
 
 [dependencies]
+controller = { workspace = true }
 protocol = { path = "../protocol" }
 clap = { workspace = true }
 serde = { workspace = true }
