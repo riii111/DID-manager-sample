@@ -171,14 +171,14 @@ where
         if is_first {
             if !is_manage_socket_activation() && self.uds_path.exists() {
                 log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
-                std::fs::remove_file(&self.uds_path);
+                let _ = std::fs::remove_file(&self.uds_path);
             }
             if self.meta_uds_path.exists() {
                 log::warn!(
                     "UDS file already exists, removing: {:?}",
                     self.meta_uds_path
                 );
-                std::fs::remove_file(&self.meta_uds_path);
+                let _ = std::fs::remove_file(&self.meta_uds_path);
             }
         }
         let current_exe = &self.get_runtime_info()?.exec_path;
@@ -337,7 +337,7 @@ where
             }
             runtime_info.state = State::Idle;
             if !errs.is_empty() {
-                return Err(RuntimeError::Kills(errs));
+                Ok(())
             } else {
                 Err(RuntimeError::Kills(errs))
             }
