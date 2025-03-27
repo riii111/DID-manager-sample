@@ -2,9 +2,12 @@ use http::StatusCode;
 
 use super::sidetree::{
     client::SidetreeHttpClient,
-    payload::{did_create_payload, DidPatchDocument, MiaxDidResponse, ToPublicKey},
+    payload::{did_create_payload, DidDocument, DidPatchDocument, MiaxDidResponse, ToPublicKey},
 };
-use crate::keyring::keypair::{KeyPair, KeyPairing};
+use crate::keyring::{
+    jwk::Jwk,
+    keypair::{KeyPair, KeyPairing},
+};
 
 // ”protocol”クレートはライブラリとして利用されることを想定しているため、anyhowは使用しない
 
@@ -32,8 +35,40 @@ pub enum FindIdentifierError<StudioClientError: std::error::Error> {
     SidetreeHttpClient(StudioClientError),
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum GetPublicKeyError {
+    #[error("Failed to get public key: {0}")]
+    PublicKeyNotFound(String),
+    #[error("Failed to convert from JWK: {0}")]
+    JwkToK256(#[from] crate::keyring::jwk::JwkToK256Error),
+    #[error("Failed to convert from JWK: {0}")]
+    JwkToX25519(#[from] crate::keyring::jwk::JwkToX25519Error),
+}
+
+fn get_key(key_type: &str, did_document: &DidDocument) -> Result<Jwk, GetPublicKeyError> {
+    let did = &did_document.id;
+    let public_key = did_document
+        .public_key
+        .clone()
+        .and_then(|pks| pks.into_iter().find(|pk| pk.id == key_type))
+        .ok_or(GetPublicKeyError::PublicKeyNotFound(did.to_string()))?;
+    Ok(public_key.public_key_jwk)
+}
+
+pub fn get_sign_key(did_document: &DidDocument) -> Result<k256::PublicKey, GetPublicKeyError> {
+    let public_key = get_key("#signingKey", did_document)?;
+    Ok(public_key.try_into()?)
+}
+
+pub fn get_encrypt_key(
+    did_document: &DidDocument,
+) -> Result<x25519_dalek::PublicKey, GetPublicKeyError> {
+    let public_key = get_key("#encryptionKey", did_document)?;
+    Ok(public_key.try_into()?)
+}
+
 // Send: ある型Tが”スレッド間で安全に所有権を移動できること"を示す
-// Sync: ある型が"スレッド間で安全に参照できること"を示すs
+// Sync: ある型が"スレッド間で安全に参照できること"を示す
 
 // DID Repositoryのインターフェース定義
 #[trait_variant::make(Send)] // トレイト自体がSendであり、トレイトオブジェクト（dyn Trait）が"Send + Sync + 'static"であることを保証

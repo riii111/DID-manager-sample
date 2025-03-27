@@ -218,7 +218,8 @@ pub fn app_config() -> Box<SingletonAppConfig> {
 #[derive(Debug)]
 pub struct ServerConfig {
     did_http_endpoint: String,
-    // did_attachment_link: String,
+    did_attachment_link: String,
+    studio_http_endpoint: String,
 }
 
 impl Default for ServerConfig {
@@ -231,21 +232,28 @@ impl ServerConfig {
     pub fn new() -> ServerConfig {
         let did_endpoint =
             env::var("MIAX_DID_HTTP_ENDPOINT").unwrap_or("https://did.miacross.io".to_string());
-        // let link =
-        // env::var("MIAX_DID_ATTACHMENT_LINK").unwrap_or("https://did.miacross.io".to_string());
-
+        let link =
+            env::var("MIAX_DID_ATTACHMENT_LINK").unwrap_or("https://did.miacross.io".to_string());
+        let studio_endpoint = env::var("MIAX_STUDIO_HTTP_ENDPOINT")
+            .unwrap_or("https://http.hub.miacross.io".to_string());
         ServerConfig {
             did_http_endpoint: did_endpoint,
-            // did_attachment_link: link,
+            did_attachment_link: link,
+            studio_http_endpoint: studio_endpoint,
         }
     }
 
     pub fn did_http_endpoint(&self) -> String {
         self.did_http_endpoint.clone()
     }
-    // pub fn did_attachment_link(&self) -> String {
-    // self.did_attachment_link.clone()
-    // }
+
+    pub fn did_attachment_link(&self) -> String {
+        self.did_attachment_link.clone()
+    }
+
+    pub fn studio_http_endpoint(&self) -> String {
+        self.studio_http_endpoint.clone()
+    }
 }
 
 pub fn server_config() -> ServerConfig {

@@ -41,7 +41,7 @@ pub struct DidPublicKey {
     pub r#type: String,
 
     #[serde(rename = "publicKeyJwk")]
-    pub public_key_jwk: PublicKeyJwk,
+    pub public_key_jwk: Jwk,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

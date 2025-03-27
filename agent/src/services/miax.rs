@@ -3,6 +3,11 @@ use crate::config::server_config;
 use crate::miax::extension::secure_keystore::FileBaseKeyStore;
 use crate::miax::keyring;
 use crate::miax::utils::sidetree_client::SideTreeClient;
+use controller::managers::{
+    resource::ResourceManagerTrait,
+    runtime::{RuntimeManagerImpl, RuntimeManagerWithoutAsync, State},
+};
+use controller::validator::storage::check_storage;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 
 use protocol::did::sidetree::payload::MiaxDidResponse;
@@ -58,5 +63,47 @@ impl MiaX {
         let res = self.did_repository.find_identifier(did).await?;
 
         Ok(res)
+    }
+
+    pub async fn update_version(&self, binary_url: &str) -> anyhow::Result<()> {
+        #[cfg(windows)]
+        {
+            unimplemented!();
+        }
+
+        #[cfg(unix)]
+        {
+            let handler =
+                controller::managers::mmap_storage::MmapHandler::new("nodex_runtime_info")?;
+            let mut runtime_manager = RuntimeManagerImpl::new_by_agent(
+                handler,
+                controller::managers::unix_process_manager::UnixProcessManager,
+            );
+            let agent_path = &runtime_manager.get_runtime_info()?.exec_path;
+            let output_path = agent_path
+                .parent()
+                .ok_or(anyhow::anyhow!("Failed to get path of parent directory"))?;
+            if !check_storage(output_path) {
+                log::error!("Not enough storage space: {:?}", output_path);
+                anyhow::bail!("Not enough storage space");
+            }
+            let resource_manager =
+                controller::managers::resource::UnixResourceManager::new(agent_path);
+
+            resource_manager.backup().map_err(|e| {
+                log::error!("Failed to backup: {}", e);
+                anyhow::anyhow!(e)
+            })?;
+
+            resource_manager
+                .download_update_resources(binary_url, Some(output_path))
+                .await
+                .map_err(|e| anyhow::anyhow!(e))?;
+
+            runtime_manager.launch_controller(agent_path)?;
+            runtime_manager.update_state(State::Update)?;
+        }
+
+        Ok(())
     }
 }
