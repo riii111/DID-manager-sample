@@ -93,4 +93,38 @@ impl Studio {
         res.json::<EmptyResponse>().await?;
         Ok(())
     }
+
+    pub async fn network(&self) -> anyhow::Result<()> {
+        let project_did = {
+            let network = crate::network_config();
+            let network = network.lock();
+            network.get_project_did().expect("project_did is not set")
+        };
+
+        let res = self
+            .http_client
+            .network("/v1/network", &project_did)
+            .await?;
+
+        match res.status() {
+            reqwest::StatusCode::OK => match res.json::<NetworkResponse>().await {
+                Ok(v) => {
+                    let network = crate::network_config();
+                    let mut network = network.lock();
+                    network.save_secret_key(&v.secret_key);
+                    network.save_project_did(&v.project_did);
+                    network.save_recipient_dids(v.recipient_dids);
+                    network.save_studio_endpoint(&v.studio_endpoint);
+                    network.save_heartbeat(v.heartbeat);
+                    Ok(())
+                }
+                Err(e) => anyhow::bail!("StatusCode=200, but parse failed. {:?}", e),
+            },
+            reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
+                Ok(v) => anyhow::bail!("StatusCode=400, error message = {:?}", v.message),
+                Err(e) => anyhow::bail!("StatusCode=400, but parse failed. {:?}", e),
+            },
+            other => anyhow::bail!("StatusCode={other}, unexpected response"),
+        }
+    }
 }

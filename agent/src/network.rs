@@ -77,7 +77,37 @@ impl Network {
         Network { config, root }
     }
 
+    pub fn write(&self) {
+        self.config.save_json(&self.root).unwrap(); //TODO: unwrap_log
+    }
+
     pub fn get_project_did(&self) -> Option<String> {
         self.root.project_did.clone()
+    }
+
+    pub fn save_secret_key(&mut self, value: &str) {
+        self.root.secret_key = Some(value.to_string());
+        self.write();
+    }
+
+    pub fn save_project_did(&mut self, value: &str) {
+        self.root.project_did = Some(value.to_string());
+        self.write();
+    }
+
+    pub fn save_recipient_dids(&mut self, value: Vec<String>) {
+        self.root.recipient_dids = Some(value);
+
+        self.write();
+    }
+
+    pub fn save_studio_endpoint(&mut self, value: &str) {
+        self.root.studio_endpoint = Some(value.to_string());
+        self.write();
+    }
+
+    pub fn save_heartbeat(&mut self, value: u64) {
+        self.root.heartbeat = Some(value);
+        self.write();
     }
 }

@@ -102,4 +102,21 @@ impl StudioClient {
         let payload = serde_json::to_string(&payload)?;
         self.post(url.as_ref(), &payload).await
     }
+
+    pub async fn network(
+        &self,
+        path: &str,
+        project_did: &str,
+    ) -> anyhow::Result<reqwest::Response> {
+        let my_did = self.did_accessor.get_my_did();
+        let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, serde_json::Value::Null, Utc::now());
+        let payload = self
+            .didcomm_service
+            .generate(model, &my_keyring, project_did, None)
+            .await?;
+        let payload = serde_json::to_string(&payload)?;
+        self.post(path, &payload).await
+    }
 }
