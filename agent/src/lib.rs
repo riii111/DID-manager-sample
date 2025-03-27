@@ -1,6 +1,5 @@
 use axum::Router;
 use dotenvy::dotenv;
-use tokio;
 pub mod cli;
 mod config;
 mod miax;
