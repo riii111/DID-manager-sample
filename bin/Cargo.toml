@@ -13,4 +13,10 @@ path = "src/main.rs"
 agent = { path = "../agent" }
 chrono = { workspace = true }
 clap = { workspace = true }
+controller = { path = "../controller" }
 env_logger = { workspace = true }
+shadow-rs = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+
+[build-dependencies]
+shadow-rs = { workspace = true }

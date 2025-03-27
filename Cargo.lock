@@ -389,7 +389,10 @@ dependencies = [
  "agent",
  "chrono",
  "clap",
+ "controller",
  "env_logger 0.11.6",
+ "shadow-rs",
+ "tokio",
 ]
 
 [[package]]
