@@ -1,7 +1,4 @@
 #[cfg(unix)]
-use nix::sys::signal;
-#[cfg(unix)]
-use nix::unistd::Pid;
 use std::env;
 
 pub fn is_manage_by_systemd() -> bool {
